@@ -848,8 +848,9 @@ function setupEventListeners() {
         renderPools();
     });
 
-    document.getElementById("btn-filter-now").addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
-    document.getElementById("btn-filter-now-mobile").addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
+    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
+        document.getElementById(id).addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
+    });
 
     document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
 
@@ -879,7 +880,7 @@ function applyOpenNow(active) {
         activeFilters.day = "all";
         activeFilters.hour = "all";
     }
-    ["btn-filter-now", "btn-filter-now-mobile"].forEach(id => {
+    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.toggle("active", active);
         btn.setAttribute("aria-pressed", String(active));
@@ -908,7 +909,15 @@ function openFilterSheet(trigger) {
     document.body.classList.add("filters-sheet-open");
     setSheetTriggersExpanded(true);
     document.getElementById("filter-sheet").setAttribute("aria-hidden", "false");
-    if (isMobileView()) document.getElementById("sheet-close-btn").focus();
+    if (isMobileView()) {
+        // The sheet is not focusable until its slide-in transition
+        // (--transition-smooth, 0.32s) finishes rendering it
+        setTimeout(() => {
+            if (document.body.classList.contains("filters-sheet-open")) {
+                document.getElementById("sheet-close-btn").focus();
+            }
+        }, 350);
+    }
 }
 
 function closeFilterSheet() {
@@ -974,7 +983,7 @@ function resetAllFilters() {
     document.getElementById("sort-select").value = "default";
     document.getElementById("filter-day-select").value = "all";
     document.getElementById("filter-hour-select").value = "all";
-    ["btn-filter-now", "btn-filter-now-mobile"].forEach(id => {
+    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.remove("active");
         btn.setAttribute("aria-pressed", "false");

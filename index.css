@@ -926,6 +926,10 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
 .mobile-view-toggle i { width: 18px; height: 18px; }
 :root[data-theme="dark"] .mobile-view-toggle { color: #0b1220; }
 
+.map-now-btn { display: none; width: 48px; height: 48px; padding: 0; flex-shrink: 0; }
+.show-map .mobile-fabs .map-now-btn { display: flex; }
+.mobile-fabs .map-now-btn.active { background-color: var(--color-accent); color: #06230f; }
+
 /* Geolocation control */
 .leaflet-locate-btn { display: flex !important; align-items: center; justify-content: center; background-color: var(--bg-card); cursor: pointer; width: 30px; height: 30px; }
 .leaflet-locate-btn svg { width: 16px; height: 16px; color: var(--text-muted); transition: var(--transition-fast); }
@@ -1050,6 +1054,10 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
 }
 
 @media (max-width: 480px) {
+    /* Keep the three floating buttons within narrow screens */
+    .mobile-fabs { gap: 8px; }
+    .mobile-view-toggle { padding: 13px 18px; }
+    .map-now-btn { padding: 0; }
     .brand-title { font-size: 24px; }
     .brand-subtitle { font-size: 13px; max-width: 100%; }
     .pool-info { padding: 16px 16px 4px; }
