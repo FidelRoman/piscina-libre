@@ -675,6 +675,15 @@ function renderPools() {
     const clearBtn = document.getElementById("clear-filters-btn");
     if (clearBtn) clearBtn.style.display = anyFilterActive() ? "inline-flex" : "none";
 
+    // Sync the mobile filter-sheet controls (active count badge + apply button)
+    const activeCount = getActiveFilterCount();
+    const badge = document.getElementById("filter-count-badge");
+    if (badge) { badge.textContent = activeCount; badge.hidden = activeCount === 0; }
+    const filtersBtn = document.getElementById("filters-toggle-btn");
+    if (filtersBtn) filtersBtn.classList.toggle("has-filters", activeCount > 0);
+    const applyBtn = document.getElementById("sheet-apply-btn");
+    if (applyBtn) applyBtn.textContent = `Ver ${n} ${n === 1 ? 'piscina' : 'piscinas'}`;
+
     // Sync map markers with the filtered list
     poolsList.forEach(pool => {
         const isVisible = filteredPools.some(fp => fp.id === pool.id);
@@ -827,25 +836,83 @@ function setupEventListeners() {
         renderPools();
     });
 
-    document.getElementById("btn-filter-now").addEventListener("click", (e) => {
-        const btn = e.currentTarget;
-        const now = new Date();
-        activeFilters.openNow = !activeFilters.openNow;
-        btn.classList.toggle("active", activeFilters.openNow);
-
-        if (activeFilters.openNow) {
-            // Also align the day/hour selects for clarity
-            const daySelect = document.getElementById("filter-day-select");
-            const hourSelect = document.getElementById("filter-hour-select");
-            daySelect.value = "all";
-            hourSelect.value = "all";
-            activeFilters.day = "all";
-            activeFilters.hour = "all";
-        }
-        renderPools();
-    });
+    document.getElementById("btn-filter-now").addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
+    document.getElementById("btn-filter-now-mobile").addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
 
     document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+    // Mobile filter sheet
+    document.getElementById("filters-toggle-btn").addEventListener("click", () => {
+        if (document.body.classList.contains("filters-sheet-open")) closeFilterSheet();
+        else openFilterSheet();
+    });
+    document.getElementById("sheet-close-btn").addEventListener("click", closeFilterSheet);
+    document.getElementById("sheet-apply-btn").addEventListener("click", closeFilterSheet);
+    document.getElementById("sheet-backdrop").addEventListener("click", closeFilterSheet);
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && document.body.classList.contains("filters-sheet-open")) closeFilterSheet();
+    });
+    window.addEventListener("resize", syncSheetForViewport);
+    syncSheetForViewport();
+}
+
+// "Abiertas ahora" quick filter — shared by the desktop and mobile buttons
+function applyOpenNow(active) {
+    activeFilters.openNow = active;
+    if (active) {
+        // Align the day/hour selects for clarity
+        document.getElementById("filter-day-select").value = "all";
+        document.getElementById("filter-hour-select").value = "all";
+        activeFilters.day = "all";
+        activeFilters.hour = "all";
+    }
+    document.getElementById("btn-filter-now").classList.toggle("active", active);
+    document.getElementById("btn-filter-now-mobile").classList.toggle("active", active);
+    renderPools();
+}
+
+// -------------------------------------------------------------
+// Mobile filter sheet
+// -------------------------------------------------------------
+function isMobileView() {
+    return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function openFilterSheet() {
+    document.body.classList.add("filters-sheet-open");
+    document.getElementById("filters-toggle-btn").setAttribute("aria-expanded", "true");
+    document.getElementById("filter-sheet").setAttribute("aria-hidden", "false");
+}
+
+function closeFilterSheet() {
+    document.body.classList.remove("filters-sheet-open");
+    document.getElementById("filters-toggle-btn").setAttribute("aria-expanded", "false");
+    if (isMobileView()) document.getElementById("filter-sheet").setAttribute("aria-hidden", "true");
+}
+
+// Keep sheet state coherent across the mobile/desktop breakpoint
+function syncSheetForViewport() {
+    const sheet = document.getElementById("filter-sheet");
+    if (isMobileView()) {
+        if (!document.body.classList.contains("filters-sheet-open")) {
+            sheet.setAttribute("aria-hidden", "true");
+        }
+    } else {
+        // Desktop: filters render inline and are always available
+        document.body.classList.remove("filters-sheet-open");
+        sheet.setAttribute("aria-hidden", "false");
+        document.getElementById("filters-toggle-btn").setAttribute("aria-expanded", "false");
+    }
+}
+
+function getActiveFilterCount() {
+    let count = 0;
+    if (activeFilters.regType !== "all") count++;
+    if (activeFilters.district !== "all") count++;
+    if (activeFilters.day !== "all") count++;
+    if (activeFilters.hour !== "all") count++;
+    if (activeFilters.openNow) count++;
+    return count;
 }
 
 function anyFilterActive() {
@@ -868,6 +935,7 @@ function resetAllFilters() {
     document.getElementById("filter-day-select").value = "all";
     document.getElementById("filter-hour-select").value = "all";
     document.getElementById("btn-filter-now").classList.remove("active");
+    document.getElementById("btn-filter-now-mobile").classList.remove("active");
 
     document.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.getAttribute("data-filter") === "all"));
     document.querySelectorAll(".district-pill").forEach(p => p.classList.toggle("active", p.getAttribute("data-district") === "all"));

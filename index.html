@@ -52,68 +52,95 @@
                     <button id="clear-search-btn" class="clear-btn" style="display: none;" aria-label="Limpiar búsqueda"><i data-lucide="x"></i></button>
                 </div>
 
-                <div class="filter-group">
-                    <span class="filter-label">Registro</span>
-                    <div class="filter-options">
-                        <button class="filter-chip active" data-filter="all">Todas</button>
-                        <button class="filter-chip" data-filter="online">Registro online</button>
-                        <button class="filter-chip" data-filter="presencial">Presencial</button>
-                    </div>
+                <div class="mobile-filter-bar">
+                    <button class="mobile-filters-btn" id="filters-toggle-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
+                        <i data-lucide="sliders-horizontal"></i>
+                        <span>Filtros</span>
+                        <span class="filter-count-badge" id="filter-count-badge" hidden>0</span>
+                        <i data-lucide="chevron-down" class="mobile-filters-chevron"></i>
+                    </button>
+                    <button class="btn-now-locate" id="btn-filter-now-mobile" title="Mostrar solo las abiertas ahora mismo">
+                        <i data-lucide="zap"></i> Abiertas ahora
+                    </button>
                 </div>
 
-                <div class="filter-group">
-                    <span class="filter-label">Horario</span>
-                    <div class="schedule-filter-options">
-                        <div class="select-wrapper">
-                            <i data-lucide="calendar" class="select-icon"></i>
-                            <select id="filter-day-select" aria-label="Filtrar por día">
-                                <option value="all">Cualquier día</option>
-                                <option value="1">Lunes</option>
-                                <option value="2">Martes</option>
-                                <option value="3">Miércoles</option>
-                                <option value="4">Jueves</option>
-                                <option value="5">Viernes</option>
-                                <option value="6">Sábado</option>
-                                <option value="0">Domingo</option>
-                            </select>
-                            <i data-lucide="chevron-down" class="chevron"></i>
-                        </div>
-
-                        <div class="select-wrapper">
-                            <i data-lucide="clock" class="select-icon"></i>
-                            <select id="filter-hour-select" aria-label="Filtrar por hora">
-                                <option value="all">Cualquier hora</option>
-                                <option value="5">05:00 am</option>
-                                <option value="6">06:00 am</option>
-                                <option value="7">07:00 am</option>
-                                <option value="8">08:00 am</option>
-                                <option value="9">09:00 am</option>
-                                <option value="10">10:00 am</option>
-                                <option value="11">11:00 am</option>
-                                <option value="12">12:00 pm</option>
-                                <option value="13">01:00 pm</option>
-                                <option value="14">02:00 pm</option>
-                                <option value="15">03:00 pm</option>
-                                <option value="16">04:00 pm</option>
-                                <option value="17">05:00 pm</option>
-                                <option value="18">06:00 pm</option>
-                                <option value="19">07:00 pm</option>
-                                <option value="20">08:00 pm</option>
-                                <option value="21">09:00 pm</option>
-                                <option value="22">10:00 pm</option>
-                            </select>
-                            <i data-lucide="chevron-down" class="chevron"></i>
-                        </div>
-
-                        <button class="btn-now-locate" id="btn-filter-now" title="Mostrar solo las abiertas ahora mismo">
-                            <i data-lucide="zap"></i> Abiertas ahora
-                        </button>
+                <div class="filter-sheet" id="filter-sheet" aria-label="Filtros" aria-hidden="false">
+                    <div class="sheet-header">
+                        <span class="sheet-handle" aria-hidden="true"></span>
+                        <h2 class="sheet-title">Filtros</h2>
+                        <button class="sheet-close" id="sheet-close-btn" aria-label="Cerrar filtros"><i data-lucide="x"></i></button>
                     </div>
-                </div>
 
-                <div class="district-section">
-                    <span class="filter-label">Distritos</span>
-                    <div class="district-pills" id="district-pills-container"></div>
+                    <div class="sheet-body">
+                        <div class="filter-group">
+                            <span class="filter-label">Registro</span>
+                            <div class="filter-options">
+                                <button class="filter-chip active" data-filter="all">Todas</button>
+                                <button class="filter-chip" data-filter="online">Registro online</button>
+                                <button class="filter-chip" data-filter="presencial">Presencial</button>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <span class="filter-label">Horario</span>
+                            <div class="schedule-filter-options">
+                                <div class="select-wrapper">
+                                    <i data-lucide="calendar" class="select-icon"></i>
+                                    <select id="filter-day-select" aria-label="Filtrar por día">
+                                        <option value="all">Cualquier día</option>
+                                        <option value="1">Lunes</option>
+                                        <option value="2">Martes</option>
+                                        <option value="3">Miércoles</option>
+                                        <option value="4">Jueves</option>
+                                        <option value="5">Viernes</option>
+                                        <option value="6">Sábado</option>
+                                        <option value="0">Domingo</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="chevron"></i>
+                                </div>
+
+                                <div class="select-wrapper">
+                                    <i data-lucide="clock" class="select-icon"></i>
+                                    <select id="filter-hour-select" aria-label="Filtrar por hora">
+                                        <option value="all">Cualquier hora</option>
+                                        <option value="5">05:00 am</option>
+                                        <option value="6">06:00 am</option>
+                                        <option value="7">07:00 am</option>
+                                        <option value="8">08:00 am</option>
+                                        <option value="9">09:00 am</option>
+                                        <option value="10">10:00 am</option>
+                                        <option value="11">11:00 am</option>
+                                        <option value="12">12:00 pm</option>
+                                        <option value="13">01:00 pm</option>
+                                        <option value="14">02:00 pm</option>
+                                        <option value="15">03:00 pm</option>
+                                        <option value="16">04:00 pm</option>
+                                        <option value="17">05:00 pm</option>
+                                        <option value="18">06:00 pm</option>
+                                        <option value="19">07:00 pm</option>
+                                        <option value="20">08:00 pm</option>
+                                        <option value="21">09:00 pm</option>
+                                        <option value="22">10:00 pm</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="chevron"></i>
+                                </div>
+
+                                <button class="btn-now-locate" id="btn-filter-now" title="Mostrar solo las abiertas ahora mismo">
+                                    <i data-lucide="zap"></i> Abiertas ahora
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="district-section">
+                            <span class="filter-label">Distritos</span>
+                            <div class="district-pills" id="district-pills-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="sheet-footer">
+                        <button class="sheet-clear-btn" id="sheet-clear-btn"><i data-lucide="filter-x"></i> Limpiar</button>
+                        <button class="sheet-apply-btn" id="sheet-apply-btn">Ver piscinas</button>
+                    </div>
                 </div>
 
                 <div class="results-meta">
@@ -159,6 +186,8 @@
             <span class="toggle-content-list"><i data-lucide="map"></i> Ver mapa</span>
             <span class="toggle-content-map" style="display: none;"><i data-lucide="list"></i> Ver lista</span>
         </button>
+
+        <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
