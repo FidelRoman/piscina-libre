@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "piscina-libre",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8235"],
+      "port": 8235
+    }
+  ]
+}

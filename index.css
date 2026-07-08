@@ -87,6 +87,11 @@
 
 html, body { height: 100%; }
 
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
 body {
     font-family: var(--font-sans);
     background-color: var(--bg-app);
@@ -410,8 +415,7 @@ body {
     gap: 12px;
     font-size: 13px;
     color: var(--text-light);
-    border-top: 1px dashed var(--border-color);
-    padding-top: 14px;
+    margin-bottom: 16px;
     flex-wrap: wrap;
 }
 .results-meta-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -886,13 +890,18 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
 .tooltip-status.open { background-color: rgba(34,197,94,0.16); color: #16a34a; }
 .tooltip-status.closed { background-color: var(--bg-input); color: var(--text-light); }
 
-/* Mobile toggle */
-.mobile-view-toggle {
+/* Mobile floating action buttons (list/map toggle + filters on map view) */
+.mobile-fabs {
     display: none;
     position: fixed;
     bottom: 22px; left: 50%;
     transform: translateX(-50%);
     z-index: 9999;
+    align-items: center;
+    gap: 10px;
+}
+.mobile-view-toggle {
+    display: flex;
     padding: 13px 24px;
     background-color: var(--text-main);
     color: var(--bg-card);
@@ -906,9 +915,13 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
     align-items: center;
     justify-content: center;
     gap: 8px;
+    white-space: nowrap;
     transition: var(--transition-smooth);
 }
-.mobile-view-toggle:hover { transform: translateX(-50%) translateY(-2px); }
+.mobile-view-toggle:hover { transform: translateY(-2px); }
+.map-filters-btn { display: none; }
+.show-map .mobile-fabs .map-filters-btn { display: flex; }
+.map-filters-btn > i, .map-filters-btn > svg { width: 17px; height: 17px; }
 .mobile-view-toggle span { display: flex; align-items: center; gap: 8px; }
 .mobile-view-toggle i { width: 18px; height: 18px; }
 :root[data-theme="dark"] .mobile-view-toggle { color: #0b1220; }
@@ -958,7 +971,7 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
     .show-map .map-area { visibility: visible; opacity: 1; }
 
     .controls-section { position: sticky; top: 0; gap: 12px; }
-    .mobile-view-toggle {
+    .mobile-fabs {
         display: flex;
         bottom: calc(22px + env(safe-area-inset-bottom));
     }
@@ -978,6 +991,21 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
     .select-wrapper select { min-height: 44px; }
     .filter-chip { padding: 10px 15px; }
     .district-pill { padding: 10px 14px; }
+
+    /* 16px floor prevents iOS Safari from auto-zooming on focus */
+    .search-wrapper input,
+    .select-wrapper select,
+    .sort-wrapper select { font-size: 16px; }
+
+    /* Inside the sheet, show every district instead of a masked horizontal scroller */
+    .filter-sheet .district-pills {
+        flex-wrap: wrap;
+        overflow: visible;
+        -webkit-mask-image: none;
+        mask-image: none;
+        margin-right: 0;
+        padding-right: 0;
+    }
 
     /* Bottom-sheet */
     .filter-sheet {
@@ -1006,7 +1034,7 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
         visibility: visible;
         transition: transform var(--transition-smooth), visibility 0s linear 0s;
     }
-    body.filters-sheet-open .mobile-view-toggle { display: none; }
+    body.filters-sheet-open .mobile-fabs { display: none; }
 
     .sheet-backdrop {
         display: block;
@@ -1018,7 +1046,6 @@ body.filters-sheet-open .mobile-filters-btn .mobile-filters-chevron { transform:
         visibility: hidden;
         transition: opacity 0.25s ease, visibility 0.25s ease;
     }
-    .sheet-backdrop[hidden] { display: block; }
     body.filters-sheet-open .sheet-backdrop { opacity: 1; visibility: visible; }
 }
 

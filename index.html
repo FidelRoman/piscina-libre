@@ -59,12 +59,12 @@
                         <span class="filter-count-badge" id="filter-count-badge" hidden>0</span>
                         <i data-lucide="chevron-down" class="mobile-filters-chevron"></i>
                     </button>
-                    <button class="btn-now-locate" id="btn-filter-now-mobile" title="Mostrar solo las abiertas ahora mismo">
+                    <button class="btn-now-locate" id="btn-filter-now-mobile" aria-pressed="false" title="Mostrar solo las abiertas ahora mismo">
                         <i data-lucide="zap"></i> Abiertas ahora
                     </button>
                 </div>
 
-                <div class="filter-sheet" id="filter-sheet" aria-label="Filtros" aria-hidden="false">
+                <div class="filter-sheet" id="filter-sheet" role="dialog" aria-label="Filtros" aria-hidden="false">
                     <div class="sheet-header">
                         <span class="sheet-handle" aria-hidden="true"></span>
                         <h2 class="sheet-title">Filtros</h2>
@@ -75,9 +75,9 @@
                         <div class="filter-group">
                             <span class="filter-label">Registro</span>
                             <div class="filter-options">
-                                <button class="filter-chip active" data-filter="all">Todas</button>
-                                <button class="filter-chip" data-filter="online">Registro online</button>
-                                <button class="filter-chip" data-filter="presencial">Presencial</button>
+                                <button class="filter-chip active" data-filter="all" aria-pressed="true">Todas</button>
+                                <button class="filter-chip" data-filter="online" aria-pressed="false">Registro online</button>
+                                <button class="filter-chip" data-filter="presencial" aria-pressed="false">Presencial</button>
                             </div>
                         </div>
 
@@ -125,7 +125,7 @@
                                     <i data-lucide="chevron-down" class="chevron"></i>
                                 </div>
 
-                                <button class="btn-now-locate" id="btn-filter-now" title="Mostrar solo las abiertas ahora mismo">
+                                <button class="btn-now-locate" id="btn-filter-now" aria-pressed="false" title="Mostrar solo las abiertas ahora mismo">
                                     <i data-lucide="zap"></i> Abiertas ahora
                                 </button>
                             </div>
@@ -143,6 +143,9 @@
                     </div>
                 </div>
 
+            </section>
+
+            <section class="pools-section">
                 <div class="results-meta">
                     <div class="results-meta-left">
                         <span id="results-count">Cargando piscinas…</span>
@@ -160,9 +163,7 @@
                         </select>
                     </div>
                 </div>
-            </section>
 
-            <section class="pools-section">
                 <div id="pools-list" class="pools-grid"></div>
 
                 <div id="no-results" class="no-results-state" style="display: none;">
@@ -182,12 +183,18 @@
             <div id="map"></div>
         </aside>
 
-        <button class="mobile-view-toggle" id="mobile-view-toggle-btn" aria-label="Cambiar entre lista y mapa">
-            <span class="toggle-content-list"><i data-lucide="map"></i> Ver mapa</span>
-            <span class="toggle-content-map" style="display: none;"><i data-lucide="list"></i> Ver lista</span>
-        </button>
+        <div class="mobile-fabs">
+            <button class="mobile-view-toggle" id="mobile-view-toggle-btn" aria-label="Cambiar entre lista y mapa">
+                <span class="toggle-content-list"><i data-lucide="map"></i> Ver mapa</span>
+                <span class="toggle-content-map" style="display: none;"><i data-lucide="list"></i> Ver lista</span>
+            </button>
+            <button class="mobile-view-toggle map-filters-btn" id="map-filters-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
+                <i data-lucide="sliders-horizontal"></i> Filtros
+                <span class="filter-count-badge" id="filter-count-badge-map" hidden>0</span>
+            </button>
+        </div>
 
-        <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
+        <div class="sheet-backdrop" id="sheet-backdrop"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
