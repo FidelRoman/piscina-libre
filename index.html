@@ -6,7 +6,25 @@
     <title>PiscinaLibre | Piscinas de nado libre en Lima</title>
 
     <meta name="description" content="Encuentra piscinas públicas y privadas de nado libre en Lima, Perú. Filtra por distrito, precio, día, hora y tipo de registro, y descubre cuáles están abiertas ahora mismo.">
-    <meta name="theme-color" content="#0ea5e9">
+    <meta name="theme-color" content="#ffffff">
+
+    <meta property="og:title" content="PiscinaLibre | Piscinas de nado libre en Lima">
+    <meta property="og:description" content="Encuentra piscinas públicas y privadas de nado libre en Lima, Perú. Filtra por distrito, precio, día y hora, y descubre cuáles están abiertas ahora mismo.">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_PE">
+
+    <!-- Apply the saved theme before first paint to avoid a light-mode flash -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem("pl-theme");
+                if (t !== "light" && t !== "dark") {
+                    t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                }
+                document.documentElement.setAttribute("data-theme", t);
+            } catch (e) { /* sin localStorage: se queda el tema claro */ }
+        })();
+    </script>
 
     <!-- App icon / favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -21,7 +39,7 @@
      crossorigin=""/>
 
     <link rel="stylesheet" href="index.css">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@1.24.0/dist/umd/lucide.min.js" defer></script>
 </head>
 <body>
     <div class="app-container">
@@ -124,10 +142,6 @@
                                     </select>
                                     <i data-lucide="chevron-down" class="chevron"></i>
                                 </div>
-
-                                <button class="btn-now-locate" id="btn-filter-now" aria-pressed="false" title="Mostrar solo las abiertas ahora mismo">
-                                    <i data-lucide="zap"></i> Abiertas ahora
-                                </button>
                             </div>
                         </div>
 
@@ -148,7 +162,7 @@
             <section class="pools-section">
                 <div class="results-meta">
                     <div class="results-meta-left">
-                        <span id="results-count">Cargando piscinas…</span>
+                        <span id="results-count" role="status" aria-live="polite">Cargando piscinas…</span>
                         <button id="clear-filters-btn" class="clear-filters-btn" style="display: none;">
                             <i data-lucide="filter-x"></i> Limpiar filtros
                         </button>

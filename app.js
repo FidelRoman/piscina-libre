@@ -247,6 +247,19 @@ function initMap() {
     });
 }
 
+function buildWhatsAppLink(pool) {
+    let num = pool.whatsapp ? pool.whatsapp.replace(/\s+/g, '') : "";
+    if (num && num.length === 9 && !num.startsWith("51")) num = "51" + num;
+    return num ? `https://wa.me/${num}?text=Hola,%20quisiera%20consultar%20sobre%20el%20horario%20de%20nado%20libre.` : "";
+}
+
+function buildNavLinks(pool) {
+    return {
+        maps: `https://www.google.com/maps/search/?api=1&query=${pool.lat},${pool.lng}`,
+        waze: `https://waze.com/ul?ll=${pool.lat},${pool.lng}&navigate=yes`
+    };
+}
+
 function rebuildMapMarkers() {
     Object.values(mapMarkers).forEach(marker => {
         if (map.hasLayer(marker)) map.removeLayer(marker);
@@ -267,7 +280,13 @@ function rebuildMapMarkers() {
             ? `<span class="tooltip-status open">Abierto ahora</span>`
             : (status === false ? `<span class="tooltip-status closed">Cerrado ahora</span>` : "");
 
-        const tooltipContent = `
+        const whatsAppLink = buildWhatsAppLink(pool);
+        const nav = buildNavLinks(pool);
+        const reserveHtml = (pool.regType === 'online' && pool.register.startsWith('http'))
+            ? `<a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" class="popup-btn popup-btn-primary">Reservar <i data-lucide="external-link"></i></a>`
+            : "";
+
+        const popupContent = `
             <div class="rich-tooltip">
                 <div class="tooltip-img-wrapper">
                     ${pool.image ? `<img src="${escapeHtml(pool.image)}" alt="${escapeHtml(pool.name)}">` : `
@@ -281,13 +300,23 @@ function rebuildMapMarkers() {
                         ${statusHtml}
                     </div>
                 </div>
+                <div class="tooltip-actions${reserveHtml ? '' : ' no-primary'}">
+                    ${reserveHtml}
+                    ${whatsAppLink ? `<a href="${whatsAppLink}" target="_blank" rel="noopener" class="popup-btn popup-btn-icon popup-btn-wa" title="Escribir por WhatsApp" aria-label="Escribir por WhatsApp"><i data-lucide="phone"></i></a>` : ''}
+                    <a href="${nav.maps}" target="_blank" rel="noopener" class="popup-btn popup-btn-icon" title="Abrir en Google Maps" aria-label="Abrir en Google Maps"><i data-lucide="navigation"></i></a>
+                    <a href="${nav.waze}" target="_blank" rel="noopener" class="popup-btn popup-btn-icon" title="Abrir en Waze" aria-label="Abrir en Waze"><i data-lucide="compass"></i></a>
+                </div>
+                <button class="popup-view-list" onclick="scrollToCard('${pool.id}')"><i data-lucide="list"></i> Ver en lista</button>
             </div>`;
 
         const marker = L.marker([pool.lat, pool.lng], { icon: customIcon })
-            .bindTooltip(tooltipContent, { direction: 'top', offset: [0, -35], className: 'custom-map-tooltip' })
+            .bindPopup(popupContent, { className: 'custom-map-popup', offset: [0, -30], maxWidth: 260, minWidth: 230, autoPanPadding: [30, 30] })
             .addTo(map);
 
-        marker.on('click', () => scrollToCard(pool.id));
+        marker.on('popupopen', () => {
+            highlightPoolCard(pool.id);
+            if (window.lucide) lucide.createIcons();
+        });
         mapMarkers[pool.id] = marker;
     });
 }
@@ -295,11 +324,40 @@ function rebuildMapMarkers() {
 // -------------------------------------------------------------
 // Data loading
 // -------------------------------------------------------------
+const POOLS_CACHE_KEY = "pl-pools-cache";
+
+function readPoolsCache() {
+    try {
+        const cached = JSON.parse(localStorage.getItem(POOLS_CACHE_KEY));
+        return Array.isArray(cached) && cached.length > 0 ? cached : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Parse schedules and render everything that depends on poolsList
+function finalizePools() {
+    poolsList.forEach(p => { p.parsed = parseSchedule(p.schedule); });
+    rebuildMapMarkers();
+    renderDistrictPills();
+    renderPools();
+    if (window.lucide) lucide.createIcons();
+}
+
 async function loadPoolsData() {
     const sheetUrl = "https://docs.google.com/spreadsheets/d/1sJCmPq7Ggd5UnnM-lCffzzfUxSCUcjkWQWs-3SrO-n0/export?format=csv&gid=0";
-    const statusText = document.getElementById("results-count");
-    if (statusText) statusText.textContent = "Cargando datos en vivo…";
-    renderSkeletons();
+
+    // Stale-while-revalidate: render the last known data instantly,
+    // then refresh silently from the live Sheet
+    const cached = readPoolsCache();
+    if (cached) {
+        poolsList = cached;
+        finalizePools();
+    } else {
+        const statusText = document.getElementById("results-count");
+        if (statusText) statusText.textContent = "Cargando datos en vivo…";
+        renderSkeletons();
+    }
 
     try {
         const controller = new AbortController();
@@ -338,19 +396,15 @@ async function loadPoolsData() {
             });
             if (livePools.length > 0) {
                 poolsList = livePools;
+                try { localStorage.setItem(POOLS_CACHE_KEY, JSON.stringify(livePools)); } catch (e) { /* storage lleno o bloqueado */ }
                 console.log("Cargados en vivo " + poolsList.length + " locales desde Google Sheets.");
             }
         }
     } catch (e) {
-        console.warn("Fallo la carga del Google Sheet en vivo. Cargando base de datos estática:", e);
-        poolsList = [...POOLS_DATA];
+        console.warn("Fallo la carga del Google Sheet en vivo. Usando " + (cached ? "caché local" : "base de datos estática") + ":", e);
+        poolsList = cached || [...POOLS_DATA];
     } finally {
-        // Precompute parsed schedule for every pool once
-        poolsList.forEach(p => { p.parsed = parseSchedule(p.schedule); });
-        rebuildMapMarkers();
-        renderDistrictPills();
-        renderPools();
-        if (window.lucide) lucide.createIcons();
+        finalizePools();
     }
 }
 
@@ -590,9 +644,11 @@ function renderDistrictPills() {
     poolsList.forEach(p => { counts[p.district] = (counts[p.district] || 0) + 1; });
     const districts = Object.keys(counts).sort();
 
-    let html = `<button class="district-pill active" data-district="all" aria-pressed="true">Todos <span>${poolsList.length}</span></button>`;
+    const isAll = activeFilters.district === "all";
+    let html = `<button class="district-pill${isAll ? ' active' : ''}" data-district="all" aria-pressed="${isAll}">Todos <span>${poolsList.length}</span></button>`;
     districts.forEach(dist => {
-        html += `<button class="district-pill" data-district="${escapeHtml(dist)}" aria-pressed="false">${escapeHtml(dist)} <span>${counts[dist]}</span></button>`;
+        const on = activeFilters.district === dist;
+        html += `<button class="district-pill${on ? ' active' : ''}" data-district="${escapeHtml(dist)}" aria-pressed="${on}">${escapeHtml(dist)} <span>${counts[dist]}</span></button>`;
     });
     container.innerHTML = html;
 }
@@ -706,13 +762,8 @@ function renderPools() {
 
     let cardsHtml = "";
     filteredPools.forEach(pool => {
-        let cleanWhatsapp = pool.whatsapp ? pool.whatsapp.replace(/\s+/g, '') : "";
-        if (cleanWhatsapp && cleanWhatsapp.length === 9 && !cleanWhatsapp.startsWith("51")) cleanWhatsapp = "51" + cleanWhatsapp;
-        const whatsAppLink = cleanWhatsapp
-            ? `https://wa.me/${cleanWhatsapp}?text=Hola,%20quisiera%20consultar%20sobre%20el%20horario%20de%20nado%20libre.` : "";
-
-        const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${pool.lat},${pool.lng}`;
-        const wazeLink = `https://waze.com/ul?ll=${pool.lat},${pool.lng}&navigate=yes`;
+        const whatsAppLink = buildWhatsAppLink(pool);
+        const nav = buildNavLinks(pool);
 
         const status = getOpenStatus(pool.parsed);
         const statusBadge = status === true
@@ -763,8 +814,8 @@ function renderPools() {
                         : `<span class="btn btn-secondary presencial-note"><i data-lucide="info"></i> Registro presencial</span>`}
                     ${whatsAppLink ? `<a href="${whatsAppLink}" target="_blank" class="btn btn-whatsapp" title="Escribir por WhatsApp" rel="noopener"><i data-lucide="phone"></i></a>` : ''}
                     <div class="nav-buttons">
-                        <a href="${googleMapsLink}" target="_blank" class="btn-icon-only" title="Abrir en Google Maps" rel="noopener"><i data-lucide="navigation"></i></a>
-                        <a href="${wazeLink}" target="_blank" class="btn-icon-only" title="Abrir en Waze" rel="noopener"><i data-lucide="compass"></i></a>
+                        <a href="${nav.maps}" target="_blank" class="btn-icon-only" title="Abrir en Google Maps" rel="noopener"><i data-lucide="navigation"></i></a>
+                        <a href="${nav.waze}" target="_blank" class="btn-icon-only" title="Abrir en Waze" rel="noopener"><i data-lucide="compass"></i></a>
                     </div>
                 </div>
             </article>`;
@@ -848,7 +899,7 @@ function setupEventListeners() {
         renderPools();
     });
 
-    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
+    ["btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
         document.getElementById(id).addEventListener("click", () => applyOpenNow(!activeFilters.openNow));
     });
 
@@ -866,6 +917,13 @@ function setupEventListeners() {
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && document.body.classList.contains("filters-sheet-open")) closeFilterSheet();
     });
+    // Desktop dropdown: clicking outside the panel closes it
+    document.addEventListener("click", (e) => {
+        if (isMobileView() || !document.body.classList.contains("filters-sheet-open")) return;
+        const sheet = document.getElementById("filter-sheet");
+        if (sheet.contains(e.target) || e.target.closest("#filters-toggle-btn")) return;
+        closeFilterSheet();
+    });
     window.addEventListener("resize", syncSheetForViewport);
     syncSheetForViewport();
 }
@@ -880,7 +938,7 @@ function applyOpenNow(active) {
         activeFilters.day = "all";
         activeFilters.hour = "all";
     }
-    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
+    ["btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.toggle("active", active);
         btn.setAttribute("aria-pressed", String(active));
@@ -909,15 +967,13 @@ function openFilterSheet(trigger) {
     document.body.classList.add("filters-sheet-open");
     setSheetTriggersExpanded(true);
     document.getElementById("filter-sheet").setAttribute("aria-hidden", "false");
-    if (isMobileView()) {
-        // The sheet is not focusable until its slide-in transition
-        // (--transition-smooth, 0.32s) finishes rendering it
-        setTimeout(() => {
-            if (document.body.classList.contains("filters-sheet-open")) {
-                document.getElementById("sheet-close-btn").focus();
-            }
-        }, 350);
-    }
+    // The sheet is not focusable until its slide-in transition
+    // (--transition-smooth, 0.32s) finishes rendering it
+    setTimeout(() => {
+        if (document.body.classList.contains("filters-sheet-open")) {
+            document.getElementById("sheet-close-btn").focus();
+        }
+    }, 350);
 }
 
 function closeFilterSheet() {
@@ -925,10 +981,8 @@ function closeFilterSheet() {
     const hadFocusInside = sheet.contains(document.activeElement);
     document.body.classList.remove("filters-sheet-open");
     setSheetTriggersExpanded(false);
-    if (isMobileView()) {
-        sheet.setAttribute("aria-hidden", "true");
-        if (hadFocusInside && sheetTrigger) sheetTrigger.focus();
-    }
+    sheet.setAttribute("aria-hidden", "true");
+    if (hadFocusInside && sheetTrigger) sheetTrigger.focus();
     sheetTrigger = null;
 }
 
@@ -936,21 +990,19 @@ function closeFilterSheet() {
 // On mobile the sheet is reparented to .app-container: inside
 // .controls-section it is trapped in the .content-area/.controls-section
 // stacking contexts and the fixed backdrop (root context) paints over it.
+// On desktop it returns to .controls-section, where it anchors as a dropdown.
 function syncSheetForViewport() {
     const sheet = document.getElementById("filter-sheet");
-    if (isMobileView()) {
-        const appContainer = document.querySelector(".app-container");
-        if (sheet.parentElement !== appContainer) appContainer.appendChild(sheet);
-        if (!document.body.classList.contains("filters-sheet-open")) {
-            sheet.setAttribute("aria-hidden", "true");
-        }
-    } else {
-        // Desktop: filters render inline and are always available
-        const controls = document.querySelector(".controls-section");
-        if (sheet.parentElement !== controls) controls.appendChild(sheet);
-        document.body.classList.remove("filters-sheet-open");
-        sheet.setAttribute("aria-hidden", "false");
-        setSheetTriggersExpanded(false);
+    const target = isMobileView()
+        ? document.querySelector(".app-container")
+        : document.querySelector(".controls-section");
+    if (sheet.parentElement !== target) {
+        target.appendChild(sheet);
+        // Crossing the breakpoint: the panel starts closed in the new layout
+        closeFilterSheet();
+    }
+    if (!document.body.classList.contains("filters-sheet-open")) {
+        sheet.setAttribute("aria-hidden", "true");
     }
 }
 
@@ -983,7 +1035,7 @@ function resetAllFilters() {
     document.getElementById("sort-select").value = "default";
     document.getElementById("filter-day-select").value = "all";
     document.getElementById("filter-hour-select").value = "all";
-    ["btn-filter-now", "btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
+    ["btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
         const btn = document.getElementById(id);
         btn.classList.remove("active");
         btn.setAttribute("aria-pressed", "false");
@@ -1013,7 +1065,7 @@ function onCardClick(e, poolId) {
 
     map.setView([pool.lat, pool.lng], 14.5, { animate: true, duration: 0.8 });
     const marker = mapMarkers[poolId];
-    if (marker) marker.openTooltip();
+    if (marker) marker.openPopup();
     highlightPoolCard(poolId);
 
     if (window.innerWidth <= 900) {
@@ -1024,7 +1076,7 @@ function onCardClick(e, poolId) {
         setTimeout(() => {
             map.invalidateSize();
             map.setView([pool.lat, pool.lng], 14.5);
-            if (marker) marker.openTooltip();
+            if (marker) marker.openPopup();
         }, 120);
     }
 }
@@ -1050,11 +1102,31 @@ window.scrollToCard = function (poolId) {
 };
 
 // -------------------------------------------------------------
+// Toast notifications (non-blocking replacement for alert)
+// -------------------------------------------------------------
+let toastTimer = null;
+function showToast(message) {
+    let toast = document.getElementById("app-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "app-toast";
+        toast.className = "app-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("visible"), 4000);
+}
+
+// -------------------------------------------------------------
 // Geolocation
 // -------------------------------------------------------------
 function locateUser() {
     if (!navigator.geolocation) {
-        alert("La geolocalización no está soportada por tu navegador.");
+        showToast("La geolocalización no está soportada por tu navegador.");
         return;
     }
     const btn = document.querySelector('.leaflet-locate-btn');
@@ -1086,7 +1158,7 @@ function locateUser() {
             if (error.code === error.PERMISSION_DENIED) msg = "Permiso denegado. Habilita el acceso a la ubicación en tu navegador.";
             else if (error.code === error.POSITION_UNAVAILABLE) msg = "La señal de ubicación no está disponible en este momento.";
             else if (error.code === error.TIMEOUT) msg = "Se agotó el tiempo de espera para obtener la ubicación.";
-            alert(msg);
+            showToast(msg);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
