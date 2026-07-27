@@ -23,7 +23,7 @@ export const SITE = {
 
     // Pega aquí tu ID de Google Analytics 4 (formato G-XXXXXXXXXX).
     // Mientras esté vacío no se carga gtag.js en ninguna página.
-    ga4Id: "",
+    ga4Id: "G-XGG5D5DDHV",
 
     // Pega aquí el enlace de invitación de tu canal de WhatsApp
     // (https://whatsapp.com/channel/...). Mientras esté vacío, la
