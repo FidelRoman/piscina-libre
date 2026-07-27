@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fidelroman.github.io/piscina-libre/sitemap.xml
