@@ -1,0 +1,54 @@
+name: Construir y publicar
+
+on:
+  push:
+    branches: [main]
+  # Los horarios y precios viven en un Google Sheet: una reconstrucción
+  # diaria mantiene al día las páginas estáticas y el sitemap sin tener
+  # que tocar el repositorio.
+  schedule:
+    - cron: "0 9 * * *"   # 09:00 UTC = 04:00 en Lima
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Si entra un push mientras corre la reconstrucción diaria, gana el push;
+# nunca se cancela un despliegue a mitad.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Sin dependencias: no hay npm install que hacer.
+      # Si el Sheet no responde, build.js cae a data/pools.json y avisa
+      # en el log, pero termina con éxito: publicar los datos del último
+      # build es mejor que dejar el sitio sin actualizar.
+      - name: Construir el sitio
+        run: node build.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,15 @@
+{
+  "name": "piscina-libre",
+  "version": "1.0.0",
+  "description": "Directorio de piscinas de nado libre en Lima, Perú.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "build:offline": "node build.js --offline",
+    "dev": "node build.js --offline && python3 -m http.server 8235 --directory dist"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

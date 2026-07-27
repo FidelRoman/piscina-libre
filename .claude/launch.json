@@ -4,7 +4,13 @@
     {
       "name": "piscina-libre",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8235"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8235",
+        "--directory",
+        "dist"
+      ],
       "port": 8235
     }
   ]

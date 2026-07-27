@@ -1,0 +1,61 @@
+<!--
+  Imagen social (Open Graph / Twitter), 1200×630.
+
+  El lienzo es cuadrado a propósito: qlmanage, que es lo que usa
+  tools/make-images.sh para rasterizar, escala cualquier SVG para
+  encajarlo en un cuadrado, así que un 1200×630 saldría deformado.
+  Dibujamos sobre 1200×1200 con el contenido en la banda central de
+  630 px (y = 285 … 915) y el script recorta esa banda.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="band">
+      <rect x="0" y="285" width="1200" height="630"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#band)">
+    <!-- Origen trasladado a la esquina superior izquierda de la banda -->
+    <g transform="translate(0, 285)">
+      <rect width="1200" height="630" fill="url(#bg)"/>
+      <rect width="1200" height="630" fill="url(#fade)"/>
+
+      <!-- Ondas decorativas -->
+      <g stroke="#ffffff" stroke-opacity="0.14" stroke-width="14" fill="none" stroke-linecap="round">
+        <path d="M-60 468 c60 -38 120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0"/>
+        <path d="M-60 540 c60 -38 120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0"/>
+        <path d="M-60 612 c60 -38 120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0 s120 -38 180 0 s120 38 180 0"/>
+      </g>
+
+      <!-- Marca -->
+      <g transform="translate(88, 74)">
+        <rect width="72" height="72" rx="20" fill="#ffffff" fill-opacity="0.2"/>
+        <g transform="translate(15, 15) scale(1.75)" stroke="#ffffff" stroke-width="2.2" fill="none"
+           stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.6 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+          <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.6 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+          <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.6 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+        </g>
+      </g>
+
+      <text x="178" y="126" font-family="Avenir Next, Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-size="44" font-weight="800" fill="#ffffff" letter-spacing="-1">PiscinaLibre</text>
+
+      <text x="88" y="270" font-family="Avenir Next, Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-size="82" font-weight="800" fill="#ffffff" letter-spacing="-2.5">Piscinas de nado</text>
+      <text x="88" y="360" font-family="Avenir Next, Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-size="82" font-weight="800" fill="#ffffff" letter-spacing="-2.5">libre en Lima</text>
+
+      <text x="88" y="432" font-family="Avenir Next, Helvetica Neue, Helvetica, Arial, sans-serif"
+            font-size="34" font-weight="500" fill="#ffffff" fill-opacity="0.9">Horarios · Precios · Cómo reservar</text>
+    </g>
+  </g>
+</svg>
