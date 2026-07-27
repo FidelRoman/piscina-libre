@@ -1,5 +1,3 @@
 {
-  "_comentario": "Distritos que no se pueden deducir de la dirección del Google Sheet. La clave es el id de la piscina (nombre en minúsculas, sin tildes, con guiones). La solución definitiva es añadir el distrito a la columna Direccion del Sheet: cuando esté ahí, la entrada de este archivo sobra y el build avisará de cualquier piscina nueva que quede sin distrito.",
-  "palacio-de-la-juventud": "Los Olivos",
-  "piscina-santa-rosa": "Los Olivos"
+  "_comentario": "Último recurso: solo se usa si una piscina llega sin distrito en la columna Distrito del Sheet y su dirección tampoco se deja deducir por texto. La clave es el id de la piscina (nombre en minúsculas, sin tildes, con guiones). Con la columna Distrito ya en el Sheet, lo normal es que este archivo se quede vacío — resuelve el dato ahí, no aquí."
 }

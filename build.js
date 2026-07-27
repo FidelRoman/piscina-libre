@@ -97,20 +97,21 @@ async function loadPools() {
     }
 }
 
-// Aplica los distritos que no se deducen de la dirección y avisa de los
-// que sigan sin resolver, para no publicar en silencio una piscina en
-// un genérico "Lima" que no sirve ni al usuario ni al buscador.
+// La columna Distrito del Sheet es la fuente de verdad. Este override solo
+// actúa como último recurso, para una fila que la traiga vacía y cuya
+// dirección tampoco se deje deducir por texto — nunca pisa un distrito que
+// ya vino resuelto, para que un cambio legítimo en el Sheet no se revierta
+// en silencio por una entrada vieja de este archivo.
 async function applyDistrictOverrides(pools) {
     const overrides = await readJSON(OVERRIDES, {});
     const unresolved = [];
     for (const pool of pools) {
-        const override = overrides[pool.id];
-        if (override) pool.district = override;
+        if (pool.district === "Lima" && overrides[pool.id]) pool.district = overrides[pool.id];
         if (pool.district === "Lima") unresolved.push(pool);
     }
     if (unresolved.length) {
         warn(`sin distrito reconocible (quedan como "Lima"): ${unresolved.map(p => p.id).join(", ")}`);
-        warn(`   añade el distrito a la columna Direccion del Sheet, o una entrada en data/district-overrides.json`);
+        warn(`   añade el distrito en la columna Distrito del Sheet, o una entrada en data/district-overrides.json`);
     }
     return pools;
 }
