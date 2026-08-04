@@ -148,9 +148,9 @@ ${header(rel, { homeIsCurrent: true })}
                                     <select id="filter-hour-select" aria-label="Filtrar por hora">
                                         <option value="all">Cualquier hora</option>
 ${Array.from({ length: 18 }, (_, i) => i + 5).map(h => {
-    const label = h === 12 ? "12:00 pm" : (h > 12 ? `${String(h - 12).padStart(2, "0")}:00 pm` : `${String(h).padStart(2, "0")}:00 am`);
-    return `                                        <option value="${h}">${label}</option>`;
-}).join("\n")}
+        const label = h === 12 ? "12:00 pm" : (h > 12 ? `${String(h - 12).padStart(2, "0")}:00 pm` : `${String(h).padStart(2, "0")}:00 am`);
+        return `                                        <option value="${h}">${label}</option>`;
+    }).join("\n")}
                                     </select>
                                     ${icon("chevron-down", "chevron")}
                                 </div>
@@ -273,7 +273,7 @@ ${footer(rel, { districts, guides: GUIAS, builtAt })}
 
     return layout({
         title: "Piscinas de nado libre en Lima | Horarios, precios y reservas | PiscinaLibre",
-        description: `Encuentra las ${pools.length} piscinas de nado libre en Lima. Filtra por distrito, precio, día y hora, y mira cuáles están abiertas ahora mismo. Datos actualizados a diario.`,
+        description: `Encuentra piscinas de nado libre en Lima. Filtra por distrito, precio, día y hora, y mira cuáles están abiertas ahora mismo. Datos actualizados a diario.`,
         path: "",
         main,
         pools,
@@ -333,8 +333,8 @@ export function districtPage({ district, pools, districts, builtAt }) {
                     <h1>Piscinas de nado libre en ${escapeHtml(district.name)}</h1>
                     <p class="page-lead">
                         ${pools.length === 1
-                            ? `Hay <strong>1 piscina</strong> con turnos de nado libre registrada en ${escapeHtml(district.name)}.`
-                            : `Hay <strong>${pools.length} piscinas</strong> con turnos de nado libre registradas en ${escapeHtml(district.name)}.`}
+            ? `Hay <strong>1 piscina</strong> con turnos de nado libre registrada en ${escapeHtml(district.name)}.`
+            : `Hay <strong>${pools.length} piscinas</strong> con turnos de nado libre registradas en ${escapeHtml(district.name)}.`}
                         ${min !== null ? ` El turno más económico cuesta <strong>${formatPrice(min)}</strong>.` : ""}
                         ${online > 0 ? ` ${online === 1 ? "Una acepta" : `${online} aceptan`} reserva online.` : " Todas se reservan presencialmente."}
                     </p>
@@ -477,8 +477,8 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
                         <div class="fact">
                             <dt>${icon("info")} Registro</dt>
                             <dd>${pool.regType === "online" && pool.register.startsWith("http")
-                                ? `Online — <a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">reservar aquí</a>`
-                                : escapeHtml(pool.register || "Presencial")}</dd>
+            ? `Online — <a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">reservar aquí</a>`
+            : escapeHtml(pool.register || "Presencial")}</dd>
                         </div>
                         <div class="fact">
                             <dt>${icon("clock")} Días que abre</dt>
@@ -489,8 +489,8 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
     const actions = `
                     <div class="pool-page-actions">
                         ${pool.regType === "online" && pool.register.startsWith("http")
-                            ? `<a class="btn btn-primary" href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar vacante ${icon("external-link")}</a>`
-                            : ""}
+            ? `<a class="btn btn-primary" href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar vacante ${icon("external-link")}</a>`
+            : ""}
                         ${wa ? `<a class="btn btn-whatsapp" href="${wa}" target="_blank" rel="noopener" data-track="whatsapp" data-pool="${escapeHtml(pool.name)}">${icon("phone")} Consultar por WhatsApp</a>` : ""}
                         <a class="btn btn-secondary" href="${nav.maps}" target="_blank" rel="noopener" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("navigation")} Google Maps</a>
                         <a class="btn btn-secondary" href="${nav.waze}" target="_blank" rel="noopener" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("compass")} Waze</a>
