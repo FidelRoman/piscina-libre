@@ -6,13 +6,17 @@
 // tarjetas y el botón de compartir.
 // -------------------------------------------------------------
 
-import { initTheme, initTracking, readEmbeddedPools, applyLiveStatus, initCardActions } from "./ui.js";
+import {
+    initTheme, initTracking, initImageFallback, readEmbeddedPools,
+    applyLiveStatus, initCardActions
+} from "./ui.js";
 
 const pools = readEmbeddedPools();
 const poolsById = new Map(pools.map(p => [p.id, p]));
 
 initTheme();
 initTracking();
+initImageFallback();
 applyLiveStatus(document, poolsById);
 // data-rel lo escribe el build: es el prefijo relativo hasta la raíz del
 // sitio, que cambia según la profundidad de la página.

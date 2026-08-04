@@ -3,7 +3,20 @@
 // -------------------------------------------------------------
 
 import { icon } from "./lib/icons.js";
-import { parseSchedule, getOpenStatus } from "./lib/pools-core.js";
+import { parseSchedule, getOpenStatus, getOpenUntil, getOpensNext, formatHour } from "./lib/pools-core.js";
+
+// -------------------------------------------------------------
+// Atajos de DOM
+// -------------------------------------------------------------
+export const $ = (id) => document.getElementById(id);
+
+// Prefijo relativo hasta la raíz del sitio; lo escribe el build en <body>.
+export const rel = () => document.body.dataset.rel || "";
+
+// El mismo umbral que usa el CSS para pasar de dos columnas a una.
+export function isMobileView() {
+    return window.matchMedia("(max-width: 900px)").matches;
+}
 
 // -------------------------------------------------------------
 // Tema (claro / oscuro)
@@ -93,9 +106,17 @@ export function readEmbeddedPools() {
 export function statusBadge(parsed, now = new Date()) {
     const status = getOpenStatus(parsed, now);
     if (status === null) return "";
-    return status
-        ? `<span class="status-badge open"><span class="dot"></span> Abierto ahora</span>`
-        : `<span class="status-badge closed"><span class="dot"></span> Cerrado ahora</span>`;
+
+    if (status) {
+        const until = getOpenUntil(parsed, now);
+        const detail = until == null ? "" : ` <span class="status-detail">· cierra ${formatHour(until)}</span>`;
+        return `<span class="status-badge open"><span class="dot"></span> Abierto${detail}</span>`;
+    }
+
+    // Si vuelve a abrir hoy, decir a qué hora ahorra abrir la ficha entera.
+    const next = getOpensNext(parsed, now);
+    const detail = next == null ? "" : ` <span class="status-detail">· abre ${formatHour(next)}</span>`;
+    return `<span class="status-badge closed"><span class="dot"></span> Cerrado${detail}</span>`;
 }
 
 export function applyLiveStatus(root, poolsById) {
@@ -138,20 +159,83 @@ export async function sharePool(pool, url) {
 // Avisos
 // -------------------------------------------------------------
 let toastTimer = null;
-export function showToast(message) {
+const TOAST_ICON = { info: "info", success: "circle-check", error: "circle-alert" };
+
+// type: "info" (por defecto) | "success" | "error".
+// Los errores se anuncian como alerta porque interrumpen algo que el
+// visitante acaba de pedir; el resto son avisos de cortesía.
+export function showToast(message, type = "info") {
     let toast = document.getElementById("app-toast");
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "app-toast";
-        toast.className = "app-toast";
-        toast.setAttribute("role", "status");
-        toast.setAttribute("aria-live", "polite");
         document.body.appendChild(toast);
+
+        // Con el cursor encima el aviso se queda: da tiempo a leerlo y a
+        // llegar hasta un enlace si lo lleva.
+        toast.addEventListener("mouseenter", () => clearTimeout(toastTimer));
+        toast.addEventListener("mouseleave", () => scheduleToastHide(toast));
     }
-    toast.textContent = message;
+
+    toast.className = `app-toast toast-${type}`;
+    toast.setAttribute("role", type === "error" ? "alert" : "status");
+    toast.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
+    toast.innerHTML = `${icon(TOAST_ICON[type] || TOAST_ICON.info, "toast-icon")}<span>${message}</span>`;
     toast.classList.add("visible");
+    scheduleToastHide(toast);
+}
+
+function scheduleToastHide(toast) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove("visible"), 4000);
+}
+
+// -------------------------------------------------------------
+// Imágenes que no cargan
+// -------------------------------------------------------------
+// Las fotos son enlaces directos a servidores municipales, que caen o
+// bloquean el hotlinking sin avisar. El evento "error" no burbujea, así
+// que se escucha en fase de captura: un solo listener cubre las tarjetas
+// que ya vienen en el HTML y las que se repintan al filtrar.
+// Un fallo no siempre significa que la foto no exista: la home pide ocho
+// imágenes a la vez a servidores municipales distintos y basta con que uno
+// vaya lento o limite el ritmo para perderla. Por eso se reintenta un par
+// de veces antes de dar el respaldo por definitivo.
+const IMG_RETRIES = 2;
+const IMG_RETRY_DELAY = 500;
+
+export function initImageFallback() {
+    document.addEventListener("error", (e) => {
+        const img = e.target;
+        if (!(img instanceof HTMLImageElement)) return;
+        handleImageError(img);
+    }, true);
+
+    // Este módulo es diferido, así que una imagen puede haber fallado
+    // antes de que el listener existiera. Las que ya terminaron sin
+    // píxeles pasan por el mismo camino, reintentos incluidos.
+    document.querySelectorAll("[data-img-holder] img").forEach(img => {
+        if (img.complete && img.naturalWidth === 0) handleImageError(img);
+    });
+}
+
+function handleImageError(img) {
+    const holder = img.closest("[data-img-holder]");
+    if (!holder) return;
+
+    const tries = Number(img.dataset.imgRetry || 0);
+    if (tries < IMG_RETRIES) {
+        img.dataset.imgRetry = tries + 1;
+        // El parámetro es lo que fuerza una petición nueva: reasignar el
+        // mismo src no la dispara, y un error puede quedar cacheado.
+        const next = new URL(img.src, location.href);
+        next.searchParams.set("_r", String(tries + 1));
+        setTimeout(() => { img.src = next.href; }, IMG_RETRY_DELAY * (tries + 1));
+        return;
+    }
+
+    holder.classList.add("img-failed");
+    img.remove();
 }
 
 // -------------------------------------------------------------

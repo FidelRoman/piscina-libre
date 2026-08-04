@@ -7,7 +7,7 @@ import {
     escapeHtml, formatPrice, parseSchedule, scheduleSummary,
     getOpenDays, buildWhatsAppLink, buildNavLinks, districtSlug
 } from "../lib/pools-core.js";
-import { poolCardHTML, renderWeekStrip, renderScheduleBlock } from "../lib/card.js";
+import { poolCardHTML, renderWeekStrip, renderScheduleBlock, districtHue } from "../lib/card.js";
 import { layout, header, footer, breadcrumbsHTML, breadcrumbsJsonLd, SITE, relFor } from "./templates.js";
 import {
     poolSchema, websiteSchema, personSchema, itemListSchema,
@@ -85,20 +85,26 @@ ${header(rel, { homeIsCurrent: true })}
             <section class="controls-section" aria-label="Buscador y filtros">
                 <div class="search-wrapper">
                     <label class="sr-only" for="search-input">Buscar piscina</label>
-                    <input type="search" id="search-input" placeholder="Buscar por piscina, distrito o dirección…" autocomplete="off">
                     ${icon("search", "search-icon")}
+                    <input type="search" id="search-input" placeholder="Buscar piscina, distrito o dirección" autocomplete="off">
+                    <kbd class="search-hint" aria-hidden="true">/</kbd>
                     <button id="clear-search-btn" class="clear-btn" hidden aria-label="Limpiar búsqueda">${icon("x")}</button>
                 </div>
 
-                <div class="mobile-filter-bar">
-                    <button class="mobile-filters-btn" id="filters-toggle-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
+                <div class="filter-bar">
+                    <button class="filter-bar-btn" id="filters-toggle-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
                         ${icon("sliders-horizontal")}
                         <span>Filtros</span>
-                        <span class="filter-count-badge" id="filter-count-badge" hidden>0</span>
-                        ${icon("chevron-down", "mobile-filters-chevron")}
+                        <span class="filter-count-badge" id="filter-count-badge" data-filter-count hidden>0</span>
+                        ${icon("chevron-down", "filter-bar-chevron")}
                     </button>
-                    <button class="btn-now-locate" id="btn-filter-now-mobile" aria-pressed="false" title="Mostrar solo las abiertas ahora mismo">
-                        ${icon("zap")} Abiertas ahora
+                    <button class="filter-bar-btn" data-action="filter-now" id="btn-filter-now-mobile" aria-pressed="false" title="Mostrar solo las abiertas ahora mismo">
+                        ${icon("zap")}
+                        <span>Abiertas ahora</span>
+                    </button>
+                    <button class="filter-bar-btn" id="btn-near-me" title="Ordenar de la más cercana a la más lejana">
+                        ${icon("locate")}
+                        <span>Cerca de mí</span>
                     </button>
                 </div>
 
@@ -164,37 +170,40 @@ ${Array.from({ length: 18 }, (_, i) => i + 5).map(h => {
                 </div>
             </section>
 
-            <section class="pools-section" aria-label="Listado de piscinas">
+            <section class="pools-section" id="resultados" aria-label="Listado de piscinas" tabindex="-1">
                 <div class="results-meta">
-                    <div class="results-meta-left">
-                        <span id="results-count" role="status" aria-live="polite">${pools.length} piscinas encontradas</span>
+                    <p class="results-count" id="results-count" role="status" aria-live="polite">${pools.length} piscinas encontradas<span class="sr-only">, abiertas primero</span></p>
+                    <div class="results-meta-actions">
                         <button id="clear-filters-btn" class="clear-filters-btn" hidden>
-                            ${icon("filter-x")} Limpiar filtros
+                            ${icon("filter-x")} Limpiar
                         </button>
-                    </div>
-                    <div class="sort-wrapper">
-                        <label for="sort-select">Ordenar:</label>
-                        <select id="sort-select">
-                            <option value="default">Abiertas primero</option>
-                            <option value="distance">Más cercanas</option>
-                            <option value="price-asc">Precio: menor a mayor</option>
-                            <option value="price-desc">Precio: mayor a menor</option>
-                            <option value="name-asc">Nombre: A-Z</option>
-                        </select>
+                        <div class="select-wrapper sort-wrapper">
+                            <label class="sr-only" for="sort-select">Ordenar resultados</label>
+                            <select id="sort-select">
+                                <option value="default">Abiertas primero</option>
+                                <option value="distance">Más cercanas</option>
+                                <option value="price-asc">Precio: menor a mayor</option>
+                                <option value="price-desc">Precio: mayor a menor</option>
+                                <option value="name-asc">Nombre: A-Z</option>
+                            </select>
+                            ${icon("chevron-down", "chevron")}
+                        </div>
                     </div>
                 </div>
 
                 <div class="active-filters" id="active-filters" hidden></div>
 
+                <p class="data-freshness" id="data-freshness" hidden></p>
+
                 <div id="pools-list" class="pools-grid">${cards}
                 </div>
 
                 <div id="no-results" class="no-results-state" hidden>
-                    ${icon("compass", "no-results-icon")}
-                    <h2>No encontramos piscinas</h2>
-                    <p>Ninguna piscina coincide con estos filtros. Prueba quitando alguno:</p>
+                    <span class="no-results-art" aria-hidden="true">${icon("search-x")}</span>
+                    <h2>Ninguna piscina coincide</h2>
+                    <p>Ningún resultado con estos filtros. Prueba quitando alguno:</p>
                     <div class="no-results-actions" id="no-results-actions"></div>
-                    <button id="reset-filters-btn" class="btn btn-primary" style="flex:0;">Limpiar todos los filtros</button>
+                    <button id="reset-filters-btn" class="btn btn-secondary">${icon("filter-x")} Limpiar todos los filtros</button>
                 </div>
             </section>
 
@@ -226,8 +235,23 @@ ${faqHTML()}
 ${footer(rel, { districts, guides: GUIAS, builtAt })}
         </main>
 
-        <aside class="map-area" id="map-area-container">
+        <aside class="map-area" id="map-area-container" data-state="idle" aria-label="Mapa de las piscinas">
             <div id="map" role="application" aria-label="Mapa de piscinas de nado libre en Lima"></div>
+
+            <div class="map-skeleton" aria-hidden="true">
+                <span class="map-skeleton-grid"></span>
+                <span class="map-skeleton-shimmer"></span>
+            </div>
+
+            <div class="map-error" role="alert">
+                ${icon("circle-alert", "map-error-icon")}
+                <p>No pudimos cargar el mapa.</p>
+                <button type="button" class="btn btn-secondary" id="map-retry-btn">${icon("refresh-cw")} Reintentar</button>
+            </div>
+
+            <button type="button" class="map-fit-btn" id="map-fit-btn" hidden>
+                ${icon("maximize")} Ver todos los resultados
+            </button>
         </aside>
 
         <div class="mobile-fabs">
@@ -237,9 +261,9 @@ ${footer(rel, { districts, guides: GUIAS, builtAt })}
             </button>
             <button class="mobile-view-toggle map-filters-btn" id="map-filters-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
                 ${icon("sliders-horizontal")} Filtros
-                <span class="filter-count-badge" id="filter-count-badge-map" hidden>0</span>
+                <span class="filter-count-badge" id="filter-count-badge-map" data-filter-count hidden>0</span>
             </button>
-            <button class="mobile-view-toggle map-now-btn" id="btn-filter-now-map" aria-pressed="false" aria-label="Mostrar solo las abiertas ahora mismo" title="Mostrar solo las abiertas ahora mismo">
+            <button class="mobile-view-toggle map-now-btn" data-action="filter-now" id="btn-filter-now-map" aria-pressed="false" aria-label="Mostrar solo las abiertas ahora mismo" title="Mostrar solo las abiertas ahora mismo">
                 ${icon("zap")}
             </button>
         </div>
@@ -274,7 +298,7 @@ ${header(rel)}
 
             ${breadcrumbsHTML(rel, trail)}
 
-            <main class="page-main">
+            <main class="page-main" id="contenido" tabindex="-1">
                 ${hero}
                 ${body}
             </main>
@@ -428,10 +452,16 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
                 </div>`;
 
     // Las imágenes son enlaces a los servidores de cada municipalidad, que
-    // caen o cambian de ruta sin aviso: si falla, el bloque entero se
-    // quita en vez de dejar un hueco vacío del alto del héroe.
+    // caen o cambian de ruta sin aviso: si falla, initImageFallback marca
+    // el contenedor y el CSS lo colapsa, en vez de dejar un hueco vacío
+    // del alto del héroe. Mientras tanto se ve el color del distrito, el
+    // mismo que usan las tarjetas.
+    //
+    // Sin fetchpriority alto a propósito: son ficheros ajenos y sin
+    // optimizar (los hay de 40 megapíxeles), así que adelantarlos al resto
+    // de la página sale caro y no lo controlamos.
     const gallery = pool.image
-        ? `<div class="pool-page-image"><img src="${escapeHtml(pool.image)}" alt="${escapeHtml(pool.name)}" width="1040" height="420" decoding="async" fetchpriority="high" onerror="this.closest('.pool-page-image').remove()"></div>`
+        ? `<div class="pool-page-image" data-img-holder style="--district-hue:${districtHue(pool.district)}"><img src="${escapeHtml(pool.image)}" alt="${escapeHtml(pool.name)}" width="1040" height="420" decoding="async"></div>`
         : "";
 
     const facts = `
@@ -461,7 +491,7 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
                         ${pool.regType === "online" && pool.register.startsWith("http")
                             ? `<a class="btn btn-primary" href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar vacante ${icon("external-link")}</a>`
                             : ""}
-                        ${wa ? `<a class="btn btn-whatsapp btn-wide" href="${wa}" target="_blank" rel="noopener" data-track="whatsapp" data-pool="${escapeHtml(pool.name)}">${icon("phone")} Consultar por WhatsApp</a>` : ""}
+                        ${wa ? `<a class="btn btn-whatsapp" href="${wa}" target="_blank" rel="noopener" data-track="whatsapp" data-pool="${escapeHtml(pool.name)}">${icon("phone")} Consultar por WhatsApp</a>` : ""}
                         <a class="btn btn-secondary" href="${nav.maps}" target="_blank" rel="noopener" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("navigation")} Google Maps</a>
                         <a class="btn btn-secondary" href="${nav.waze}" target="_blank" rel="noopener" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("compass")} Waze</a>
                     </div>`;

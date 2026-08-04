@@ -213,6 +213,12 @@ export function layout({
         ? `\n    <script type="application/json" id="pools-data">${JSON.stringify(pools.map(({ parsed, ...rest }) => rest)).replace(/</g, "\\u003c")}</script>`
         : "";
 
+    // Primer elemento tabulable de la página: salta la cabecera y, en la
+    // home, también el buscador y los filtros.
+    const skipLink = bodyClass === "page-content"
+        ? `<a class="skip-link" href="#contenido">Saltar al contenido</a>`
+        : `<a class="skip-link" href="#resultados">Saltar a los resultados</a>`;
+
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -231,11 +237,12 @@ ${metaTags({ title, description, path, ogType, ogImage })}
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@700;800&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap">
 
     <link rel="stylesheet" href="${rel}index.css">${headExtra}${analytics()}
 </head>
 <body${bodyClass ? ` class="${bodyClass}"` : ""} data-rel="${rel}">
+    ${skipLink}
 ${main}
 ${bodyExtra}${poolsData}
     <script type="module" src="${rel}${bodyClass === "page-content" ? "page.js" : "app.js"}"></script>

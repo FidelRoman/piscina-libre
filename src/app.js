@@ -3,406 +3,52 @@
 //
 // Las tarjetas ya vienen escritas en el HTML por el build, así que la
 // página es legible y utilizable sin esperar a ninguna red. Este módulo
-// añade el filtrado, el mapa (que se carga aparte, bajo demanda) y el
-// estado en vivo de cada sede.
+// solo orquesta: el estado vive en state.js, el mapa en map.js y los
+// controles de filtro en filters.js.
 // -------------------------------------------------------------
 
 import {
-    escapeHtml, matchesScheduleFilter, getOpenStatus, parseSchedule,
-    poolsFromCSV, distanceKm, formatDistance, DAY_LABELS_LONG, SHEET_URL
+    parseSchedule, poolsFromCSV, formatDistance, SHEET_URL
 } from "./lib/pools-core.js";
 import { poolCardHTML } from "./lib/card.js";
 import { icon } from "./lib/icons.js";
 import {
-    initTheme, initTracking, onThemeChange, track, readEmbeddedPools,
-    applyLiveStatus, showToast, sharePool, currentTheme
+    initTheme, initTracking, initImageFallback, onThemeChange, track,
+    readEmbeddedPools, applyLiveStatus, showToast, sharePool,
+    $, rel, isMobileView
 } from "./ui.js";
-
-// -------------------------------------------------------------
-// Estado
-// -------------------------------------------------------------
-const DEFAULT_FILTERS = {
-    search: "",
-    regType: "all",   // "all" | "online" | "presencial"
-    district: "all",  // "all" | nombre del distrito
-    day: "all",       // "all" | "0".."6"
-    hour: "all",      // "all" | "5".."22"
-    openNow: false
-};
-
-let poolsList = readEmbeddedPools();
-let poolsById = new Map(poolsList.map(p => [p.id, p]));
-let activeFilters = { ...DEFAULT_FILTERS };
-let currentSort = "default";
-let userPosition = null;   // { lat, lng } una vez concedida la geolocalización
-
-// Mapa: todo lo de Leaflet vive detrás de ensureMap()
-let map = null;
-let tileLayer = null;
-let mapMarkers = {};
-let userLocationMarker = null;
-let leafletPromise = null;
-let mapReady = null;
-
-const $ = (id) => document.getElementById(id);
-const rel = () => document.body.dataset.rel || "";
-
-// -------------------------------------------------------------
-// Estado en la URL
-// -------------------------------------------------------------
-// Los filtros viven en la query string para que una vista filtrada se
-// pueda compartir, enlazar desde las páginas de distrito y sobrevivir a
-// una recarga.
-function readFiltersFromURL() {
-    const params = new URLSearchParams(location.search);
-    const next = { ...DEFAULT_FILTERS };
-
-    if (params.has("q")) next.search = params.get("q");
-    if (params.has("reg")) next.regType = params.get("reg");
-    if (params.has("distrito")) next.district = params.get("distrito");
-    if (params.has("dia")) next.day = params.get("dia");
-    if (params.has("hora")) next.hour = params.get("hora");
-    next.openNow = params.get("ahora") === "1";
-
-    let sort = params.get("orden") || "default";
-
-    // Un distrito que ya no existe (sede retirada del Sheet) dejaría la
-    // lista vacía sin explicación posible para el visitante
-    if (next.district !== "all" && !poolsList.some(p => p.district === next.district)) {
-        next.district = "all";
-    }
-    // "Más cercanas" necesita permiso de ubicación, que no se puede
-    // heredar de un enlace: se pide cuando el usuario lo elige.
-    if (sort === "distance") sort = "default";
-
-    activeFilters = next;
-    currentSort = sort;
-}
-
-function writeFiltersToURL({ push = false } = {}) {
-    const params = new URLSearchParams();
-    if (activeFilters.search) params.set("q", activeFilters.search);
-    if (activeFilters.regType !== "all") params.set("reg", activeFilters.regType);
-    if (activeFilters.district !== "all") params.set("distrito", activeFilters.district);
-    if (activeFilters.day !== "all") params.set("dia", activeFilters.day);
-    if (activeFilters.hour !== "all") params.set("hora", activeFilters.hour);
-    if (activeFilters.openNow) params.set("ahora", "1");
-    if (currentSort !== "default" && currentSort !== "distance") params.set("orden", currentSort);
-
-    const qs = params.toString();
-    const url = location.pathname + (qs ? "?" + qs : "") + location.hash;
-    if (url === location.pathname + location.search + location.hash) return;
-
-    // Los controles discretos (chips, selects) merecen una entrada de
-    // historial; escribir en el buscador, no.
-    if (push) history.pushState(null, "", url);
-    else history.replaceState(null, "", url);
-}
-
-// Vuelca activeFilters sobre los controles del DOM
-function syncControlsFromState() {
-    $("search-input").value = activeFilters.search;
-    $("clear-search-btn").hidden = activeFilters.search === "";
-    $("filter-day-select").value = activeFilters.day;
-    $("filter-hour-select").value = activeFilters.hour;
-    $("sort-select").value = currentSort;
-
-    document.querySelectorAll(".filter-chip").forEach(chip => {
-        const on = chip.dataset.filter === activeFilters.regType;
-        chip.classList.toggle("active", on);
-        chip.setAttribute("aria-pressed", String(on));
-    });
-    document.querySelectorAll(".district-pill").forEach(pill => {
-        const on = pill.dataset.district === activeFilters.district;
-        pill.classList.toggle("active", on);
-        pill.setAttribute("aria-pressed", String(on));
-    });
-    ["btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
-        const btn = $(id);
-        btn.classList.toggle("active", activeFilters.openNow);
-        btn.setAttribute("aria-pressed", String(activeFilters.openNow));
-    });
-}
-
-// -------------------------------------------------------------
-// Mapa (Leaflet bajo demanda)
-// -------------------------------------------------------------
-// Leaflet son ~150 KB entre CSS y JS que la mayoría de visitantes de
-// móvil nunca llega a abrir, así que no entra en la carga inicial.
-function loadLeaflet() {
-    if (leafletPromise) return leafletPromise;
-    leafletPromise = new Promise((resolve, reject) => {
-        const css = document.createElement("link");
-        css.rel = "stylesheet";
-        css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        css.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-        css.crossOrigin = "";
-        document.head.appendChild(css);
-
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-        script.crossOrigin = "";
-        script.onload = () => resolve(window.L);
-        script.onerror = () => reject(new Error("No se pudo cargar Leaflet"));
-        document.head.appendChild(script);
-    });
-    return leafletPromise;
-}
-
-function ensureMap() {
-    if (mapReady) return mapReady;
-    mapReady = loadLeaflet().then(() => {
-        initMap();
-        rebuildMapMarkers();
-        syncMarkersWithFilters(filterPools());
-    }).catch(err => {
-        mapReady = null; // deja reintentar si fue un fallo de red puntual
-        console.warn(err);
-        showToast("No pudimos cargar el mapa. Revisa tu conexión.");
-        throw err;
-    });
-    return mapReady;
-}
-
-function tileUrlFor(theme) {
-    return theme === "dark"
-        ? "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-}
-
-function updateMapTiles(theme) {
-    if (!map) return;
-    if (tileLayer) map.removeLayer(tileLayer);
-    tileLayer = L.tileLayer(tileUrlFor(theme), {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 20
-    }).addTo(map);
-}
-
-function initMap() {
-    map = L.map("map", { zoomControl: false }).setView([-12.075, -77.048], 12.5);
-    updateMapTiles(currentTheme());
-    L.control.zoom({ position: "topright" }).addTo(map);
-
-    const LocateControl = L.Control.extend({
-        options: { position: "topright" },
-        onAdd() {
-            const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-            const button = L.DomUtil.create("a", "leaflet-locate-btn", container);
-            button.innerHTML = icon("locate");
-            button.href = "#";
-            button.title = "Ir a mi ubicación actual";
-            button.setAttribute("role", "button");
-            button.setAttribute("aria-label", "Ir a mi ubicación actual");
-            L.DomEvent.on(button, "click", (e) => {
-                L.DomEvent.stopPropagation(e);
-                L.DomEvent.preventDefault();
-                locateUser().catch(() => { /* ya se avisó con un toast */ });
-            });
-            return container;
-        }
-    });
-    map.addControl(new LocateControl());
-
-    map.on("popupclose", () => {
-        document.querySelectorAll(".pool-card").forEach(card => card.classList.remove("active-highlight"));
-    });
-}
-
-function rebuildMapMarkers() {
-    if (!map) return;
-    Object.values(mapMarkers).forEach(marker => {
-        if (map.hasLayer(marker)) map.removeLayer(marker);
-    });
-    mapMarkers = {};
-
-    poolsList.forEach(pool => {
-        const customIcon = L.divIcon({
-            className: "custom-leaflet-marker",
-            iconSize: [36, 36],
-            iconAnchor: [18, 36],
-            popupAnchor: [0, -32],
-            html: icon("waves")
-        });
-
-        const marker = L.marker([pool.lat, pool.lng], { icon: customIcon, title: pool.name })
-            .bindPopup(() => popupHTML(pool), {
-                className: "custom-map-popup", offset: [0, -30],
-                maxWidth: 260, minWidth: 230, autoPanPadding: [30, 30]
-            })
-            .addTo(map);
-
-        marker.on("popupopen", () => highlightPoolCard(pool.id));
-        mapMarkers[pool.id] = marker;
-    });
-}
-
-// El popup se genera al abrirlo, no al crear el marcador, para que el
-// "Abierto ahora" sea el de este momento y no el de la carga de página.
-function popupHTML(pool) {
-    const status = getOpenStatus(pool.parsed);
-    const statusHtml = status === true
-        ? `<span class="tooltip-status open">Abierto ahora</span>`
-        : (status === false ? `<span class="tooltip-status closed">Cerrado ahora</span>` : "");
-
-    const reserveHtml = (pool.regType === "online" && pool.register.startsWith("http"))
-        ? `<a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" class="popup-btn popup-btn-primary" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar ${icon("external-link")}</a>`
-        : "";
-
-    return `
-        <div class="rich-tooltip">
-            <div class="tooltip-img-wrapper">
-                ${pool.image
-                    ? `<img src="${escapeHtml(pool.image)}" alt="${escapeHtml(pool.name)}" loading="lazy" decoding="async">`
-                    : `<div class="tooltip-placeholder"><span>${escapeHtml(pool.district)}</span></div>`}
-            </div>
-            <div class="tooltip-info">
-                <span class="tooltip-district">${escapeHtml(pool.district)}</span>
-                <h3 class="tooltip-title">${escapeHtml(pool.name)}</h3>
-                <div class="tooltip-foot">
-                    <span class="tooltip-price">${pool.priceNum > 0 ? `S/. ${pool.priceNum.toFixed(2)}` : "Consultar"}</span>
-                    ${statusHtml}
-                </div>
-            </div>
-            <div class="tooltip-actions${reserveHtml ? "" : " no-primary"}">
-                ${reserveHtml}
-                <a href="https://www.google.com/maps/search/?api=1&query=${pool.lat},${pool.lng}" target="_blank" rel="noopener" class="popup-btn popup-btn-icon" title="Abrir en Google Maps" aria-label="Abrir en Google Maps" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("navigation")}</a>
-                <a href="https://waze.com/ul?ll=${pool.lat},${pool.lng}&navigate=yes" target="_blank" rel="noopener" class="popup-btn popup-btn-icon" title="Abrir en Waze" aria-label="Abrir en Waze" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("compass")}</a>
-            </div>
-            <a class="popup-view-list" href="${rel()}piscina/${pool.id}/">${icon("info")} Ver ficha completa</a>
-        </div>`;
-}
-
-function syncMarkersWithFilters(visiblePools) {
-    if (!map) return;
-    const visible = new Set(visiblePools.map(p => p.id));
-    poolsList.forEach(pool => {
-        const marker = mapMarkers[pool.id];
-        if (!marker) return;
-        const shouldShow = visible.has(pool.id);
-        if (shouldShow && !map.hasLayer(marker)) marker.addTo(map);
-        if (!shouldShow && map.hasLayer(marker)) marker.remove();
-    });
-}
-
-// -------------------------------------------------------------
-// Filtrado y orden
-// -------------------------------------------------------------
-function filterPools() {
-    const q = activeFilters.search.toLowerCase();
-    return poolsList.filter(pool => {
-        const matchesSearch = !q ||
-            pool.name.toLowerCase().includes(q) ||
-            pool.district.toLowerCase().includes(q) ||
-            pool.address.toLowerCase().includes(q);
-
-        return matchesSearch &&
-            (activeFilters.regType === "all" || pool.regType === activeFilters.regType) &&
-            (activeFilters.district === "all" || pool.district === activeFilters.district) &&
-            matchesScheduleFilter(pool.parsed, activeFilters.day, activeFilters.hour) &&
-            (!activeFilters.openNow || getOpenStatus(pool.parsed) === true);
-    });
-}
-
-function sortPools(pools) {
-    const sorted = [...pools];
-    if (currentSort === "price-asc") {
-        sorted.sort((a, b) => (a.priceNum || 9999) - (b.priceNum || 9999));
-    } else if (currentSort === "price-desc") {
-        sorted.sort((a, b) => b.priceNum - a.priceNum);
-    } else if (currentSort === "name-asc") {
-        sorted.sort((a, b) => a.name.localeCompare(b.name, "es"));
-    } else if (currentSort === "distance" && userPosition) {
-        sorted.sort((a, b) => (a._distance ?? Infinity) - (b._distance ?? Infinity));
-    } else {
-        // Por defecto, las que están abiertas ahora suben arriba
-        sorted.sort((a, b) => (getOpenStatus(b.parsed) === true) - (getOpenStatus(a.parsed) === true));
-    }
-    return sorted;
-}
-
-function computeDistances() {
-    if (!userPosition) return;
-    poolsList.forEach(p => {
-        p._distance = distanceKm(userPosition.lat, userPosition.lng, p.lat, p.lng);
-    });
-}
-
-// -------------------------------------------------------------
-// Filtros activos
-// -------------------------------------------------------------
-function activeFilterList() {
-    const list = [];
-    if (activeFilters.search) list.push({ key: "search", label: `“${activeFilters.search}”` });
-    if (activeFilters.regType !== "all") {
-        list.push({ key: "regType", label: activeFilters.regType === "online" ? "Registro online" : "Presencial" });
-    }
-    if (activeFilters.district !== "all") list.push({ key: "district", label: activeFilters.district });
-    if (activeFilters.day !== "all") list.push({ key: "day", label: DAY_LABELS_LONG[parseInt(activeFilters.day, 10)] });
-    if (activeFilters.hour !== "all") {
-        const h = parseInt(activeFilters.hour, 10);
-        const label = h === 12 ? "12:00 pm" : (h > 12 ? `${h - 12}:00 pm` : `${h}:00 am`);
-        list.push({ key: "hour", label: `A las ${label}` });
-    }
-    if (activeFilters.openNow) list.push({ key: "openNow", label: "Abiertas ahora" });
-    return list;
-}
-
-function clearFilter(key) {
-    activeFilters[key] = DEFAULT_FILTERS[key];
-    onFilterChange({ push: true });
-}
-
-function renderActiveFilters(list) {
-    const container = $("active-filters");
-    container.hidden = list.length === 0;
-    if (!list.length) { container.innerHTML = ""; return; }
-    container.innerHTML = `<span class="active-filters-label">Filtros:</span>` + list.map(f =>
-        `<button type="button" class="active-filter-chip" data-clear-filter="${f.key}">
-            <span>${escapeHtml(f.label)}</span>${icon("x", "chip-x")}
-            <span class="sr-only">Quitar este filtro</span>
-        </button>`
-    ).join("");
-}
-
-function anyFilterActive() {
-    return activeFilterList().length > 0 || currentSort !== "default";
-}
+import {
+    state, DEFAULT_FILTERS, SORT_LABELS, setPools, readFiltersFromURL,
+    writeFiltersToURL, filterPools, sortPools, activeFilterList, anyFilterActive
+} from "./state.js";
+import {
+    ensureMap, updateMapTiles, rebuildMapMarkers, syncMarkersWithFilters,
+    fitToVisible, requestPosition, setMapView, focusPoolOnMap
+} from "./map.js";
+import {
+    syncControlsFromState, renderDistrictPills, renderActiveFilters,
+    renderNoResultsActions, renderFilterCount, openFilterSheet,
+    closeFilterSheet, syncSheetForViewport, trapFocus, isSheetOpen
+} from "./filters.js";
 
 // -------------------------------------------------------------
 // Render
 // -------------------------------------------------------------
-function renderDistrictPills() {
-    const counts = {};
-    poolsList.forEach(p => { counts[p.district] = (counts[p.district] || 0) + 1; });
-    const districts = Object.keys(counts).sort((a, b) => a.localeCompare(b, "es"));
-
-    const isAll = activeFilters.district === "all";
-    let html = `<button class="district-pill${isAll ? " active" : ""}" data-district="all" aria-pressed="${isAll}">Todos <span>${poolsList.length}</span></button>`;
-    districts.forEach(dist => {
-        const on = activeFilters.district === dist;
-        html += `<button class="district-pill${on ? " active" : ""}" data-district="${escapeHtml(dist)}" aria-pressed="${on}">${escapeHtml(dist)} <span>${counts[dist]}</span></button>`;
-    });
-    $("district-pills-container").innerHTML = html;
-}
-
-function renderNoResultsActions(list) {
-    // La etiqueta ya viene entrecomillada cuando hace falta (la búsqueda),
-    // así que aquí no se vuelve a envolver
-    $("no-results-actions").innerHTML = list.map(f =>
-        `<button type="button" class="btn btn-secondary btn-inline" data-clear-filter="${f.key}">Quitar ${escapeHtml(f.label)}</button>`
-    ).join("");
-}
-
-function renderPools() {
+// animate: solo en cambios discretos (un chip, un distrito, un select).
+// Al escribir en el buscador se repinta cada 220 ms y animarlo marea.
+function renderPools({ animate = false } = {}) {
     const filtered = sortPools(filterPools());
     const listContainer = $("pools-list");
     const noResults = $("no-results");
     const n = filtered.length;
 
-    $("results-count").textContent = `${n} ${n === 1 ? "piscina encontrada" : "piscinas encontradas"}`;
+    // El orden ya se ve en el desplegable de al lado, así que en pantalla
+    // sobra; al lector de pantalla, que anuncia este bloque al cambiar los
+    // filtros, sí le hace falta para saber qué está leyendo.
+    const orden = SORT_LABELS[state.sort] || "";
+    $("results-count").innerHTML =
+        `${n} ${n === 1 ? "piscina encontrada" : "piscinas encontradas"}` +
+        (orden ? `<span class="sr-only">, ${orden}</span>` : "");
 
     const active = activeFilterList();
     renderActiveFilters(active);
@@ -410,13 +56,7 @@ function renderPools() {
 
     // La búsqueda tiene su propio botón de limpiar, así que no cuenta
     // para la insignia del panel de filtros
-    const count = active.filter(f => f.key !== "search").length;
-    ["filter-count-badge", "filter-count-badge-map"].forEach(id => {
-        const badge = $(id);
-        badge.textContent = count;
-        badge.hidden = count === 0;
-    });
-    $("filters-toggle-btn").classList.toggle("has-filters", count > 0);
+    renderFilterCount(active.filter(f => f.key !== "search").length);
     $("sheet-apply-btn").textContent = `Ver ${n} ${n === 1 ? "piscina" : "piscinas"}`;
 
     syncMarkersWithFilters(filtered);
@@ -430,9 +70,10 @@ function renderPools() {
     noResults.hidden = true;
 
     listContainer.innerHTML = filtered.map(p => poolCardHTML(p, { rel: rel(), heading: 2 })).join("");
-    applyLiveStatus(listContainer, poolsById);
+    applyLiveStatus(listContainer, state.poolsById);
+    if (animate) replayListTransition(listContainer);
 
-    if (currentSort === "distance" && userPosition) {
+    if (state.sort === "distance" && state.userPosition) {
         filtered.forEach(p => {
             if (p._distance == null) return;
             const card = $(`card-${p.id}`);
@@ -445,210 +86,49 @@ function renderPools() {
     }
 }
 
-function onFilterChange({ push = false } = {}) {
+// Reinicia la animación de entrada de la lista. Hay que forzar un
+// reflow: quitar y volver a poner la clase en el mismo fotograma no
+// reinicia nada.
+function replayListTransition(listContainer) {
+    listContainer.classList.remove("is-repainting");
+    void listContainer.offsetWidth;
+    listContainer.classList.add("is-repainting");
+}
+
+function onFilterChange({ push = false, animate = true } = {}) {
     syncControlsFromState();
     writeFiltersToURL({ push });
-    renderPools();
+    renderPools({ animate });
+}
+
+function clearFilter(key) {
+    state.filters[key] = DEFAULT_FILTERS[key];
+    onFilterChange({ push: true });
 }
 
 function resetAllFilters() {
-    activeFilters = { ...DEFAULT_FILTERS };
-    currentSort = "default";
+    state.filters = { ...DEFAULT_FILTERS };
+    state.sort = "default";
     onFilterChange({ push: true });
     track("filtros_limpiados");
-}
-
-// -------------------------------------------------------------
-// Geolocalización
-// -------------------------------------------------------------
-function requestPosition() {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            showToast("La geolocalización no está soportada por tu navegador.");
-            reject(new Error("unsupported"));
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            pos => {
-                userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                computeDistances();
-                resolve(userPosition);
-            },
-            error => {
-                let msg = "No pudimos obtener tu ubicación.";
-                if (error.code === error.PERMISSION_DENIED) msg = "Permiso denegado. Habilita el acceso a la ubicación en tu navegador.";
-                else if (error.code === error.POSITION_UNAVAILABLE) msg = "La señal de ubicación no está disponible en este momento.";
-                else if (error.code === error.TIMEOUT) msg = "Se agotó el tiempo de espera para obtener la ubicación.";
-                showToast(msg);
-                reject(error);
-            },
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-        );
-    });
-}
-
-async function locateUser() {
-    const btn = document.querySelector(".leaflet-locate-btn");
-    if (btn) btn.classList.add("locating");
-    try {
-        const { lat, lng } = userPosition || await requestPosition();
-        await ensureMap();
-        map.setView([lat, lng], 14.5, { animate: true, duration: 0.8 });
-
-        if (userLocationMarker) {
-            userLocationMarker.setLatLng([lat, lng]);
-        } else {
-            const userIcon = L.divIcon({
-                className: "user-location-marker",
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-                html: '<div class="user-marker-pulse"></div>'
-            });
-            userLocationMarker = L.marker([lat, lng], { icon: userIcon })
-                .bindTooltip("Tu ubicación actual", { direction: "top", className: "custom-map-tooltip" })
-                .addTo(map);
-        }
-    } finally {
-        if (btn) btn.classList.remove("locating");
-    }
 }
 
 async function sortByDistance() {
     const select = $("sort-select");
     select.disabled = true;
     try {
-        if (!userPosition) await requestPosition();
-        currentSort = "distance";
-        renderPools();
+        if (!state.userPosition) await requestPosition();
+        state.sort = "distance";
+        renderPools({ animate: true });
+        syncControlsFromState();
         track("orden_cercania");
     } catch (e) {
         // Sin ubicación no hay orden por cercanía: se vuelve al anterior
-        currentSort = "default";
+        state.sort = "default";
         select.value = "default";
         renderPools();
     } finally {
         select.disabled = false;
-    }
-}
-
-// -------------------------------------------------------------
-// Vista de mapa en móvil
-// -------------------------------------------------------------
-function setMapView(show) {
-    document.body.classList.toggle("show-map", show);
-    const toggle = $("mobile-view-toggle-btn");
-    toggle.querySelector(".toggle-content-list").hidden = show;
-    toggle.querySelector(".toggle-content-map").hidden = !show;
-    if (show) {
-        ensureMap()
-            .then(() => setTimeout(() => map.invalidateSize({ animate: true }), 60))
-            .catch(() => { /* ya se avisó con un toast */ });
-        track("ver_mapa");
-    }
-}
-
-function focusPoolOnMap(poolId) {
-    const pool = poolsById.get(poolId);
-    if (!pool) return;
-    highlightPoolCard(poolId);
-
-    ensureMap().then(() => {
-        const openIt = () => {
-            map.setView([pool.lat, pool.lng], 14.5, { animate: true, duration: 0.8 });
-            const marker = mapMarkers[poolId];
-            if (marker) marker.openPopup();
-        };
-        if (isMobileView()) {
-            setMapView(true);
-            setTimeout(() => { map.invalidateSize(); openIt(); }, 120);
-        } else {
-            openIt();
-        }
-    }).catch(() => { /* ya se avisó con un toast */ });
-}
-
-function highlightPoolCard(poolId) {
-    document.querySelectorAll(".pool-card").forEach(card => card.classList.remove("active-highlight"));
-    const card = $(`card-${poolId}`);
-    if (card) card.classList.add("active-highlight");
-}
-
-// -------------------------------------------------------------
-// Panel de filtros
-// -------------------------------------------------------------
-function isMobileView() {
-    return window.matchMedia("(max-width: 900px)").matches;
-}
-
-let sheetTrigger = null;
-const FOCUSABLE = 'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])';
-
-// Con el panel abierto el backdrop tapa la página entera, así que el
-// tabulador no debe poder salirse por detrás.
-function trapFocus(e) {
-    if (e.key !== "Tab" || !document.body.classList.contains("filters-sheet-open")) return;
-    const sheet = $("filter-sheet");
-    const items = [...sheet.querySelectorAll(FOCUSABLE)].filter(el => el.offsetParent !== null);
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-
-    if (!sheet.contains(document.activeElement)) {
-        e.preventDefault();
-        first.focus();
-    } else if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-    }
-}
-
-function setSheetTriggersExpanded(expanded) {
-    ["filters-toggle-btn", "map-filters-btn"].forEach(id => {
-        $(id).setAttribute("aria-expanded", String(expanded));
-    });
-}
-
-function openFilterSheet(trigger) {
-    sheetTrigger = trigger || $("filters-toggle-btn");
-    document.body.classList.add("filters-sheet-open");
-    setSheetTriggersExpanded(true);
-    $("filter-sheet").setAttribute("aria-hidden", "false");
-    // El panel no es enfocable hasta que termina de deslizarse
-    // (--transition-smooth, 0.32 s)
-    setTimeout(() => {
-        if (document.body.classList.contains("filters-sheet-open")) $("sheet-close-btn").focus();
-    }, 350);
-}
-
-function closeFilterSheet() {
-    const sheet = $("filter-sheet");
-    const hadFocusInside = sheet.contains(document.activeElement);
-    document.body.classList.remove("filters-sheet-open");
-    setSheetTriggersExpanded(false);
-    sheet.setAttribute("aria-hidden", "true");
-    if (hadFocusInside && sheetTrigger) sheetTrigger.focus();
-    sheetTrigger = null;
-}
-
-// Mantiene el panel coherente al cruzar el breakpoint. En móvil se
-// reparenta a .app-container: dentro de .controls-section queda atrapado
-// en los contextos de apilamiento de .content-area/.controls-section y el
-// backdrop fijo (contexto raíz) lo taparía. En escritorio vuelve a
-// .controls-section, donde se ancla como desplegable.
-function syncSheetForViewport() {
-    const sheet = $("filter-sheet");
-    const target = isMobileView()
-        ? document.querySelector(".app-container")
-        : document.querySelector(".controls-section");
-    if (sheet.parentElement !== target) {
-        target.appendChild(sheet);
-        closeFilterSheet();
-    }
-    if (!document.body.classList.contains("filters-sheet-open")) {
-        sheet.setAttribute("aria-hidden", "true");
     }
 }
 
@@ -661,6 +141,8 @@ function syncSheetForViewport() {
 function dataFingerprint(pools) {
     return pools.map(p => `${p.id}|${p.schedule}|${p.price}|${p.register}`).join("\n");
 }
+
+let lastCheck = null;
 
 async function refreshFromSheet() {
     try {
@@ -675,25 +157,37 @@ async function refreshFromSheet() {
 
         const fresh = poolsFromCSV(csv);
         if (!fresh.length) return;
-        if (dataFingerprint(fresh) === dataFingerprint(poolsList)) return;
+
+        // Llegó respuesta buena del Sheet: los datos están verificados,
+        // hayan cambiado o no.
+        lastCheck = Date.now();
+        renderFreshness();
+
+        if (dataFingerprint(fresh) === dataFingerprint(state.pools)) return;
 
         // Los distritos que el build resolvió a mano (porque no se deducen
         // de la dirección) se conservan al refrescar.
-        const knownDistricts = new Map(poolsList.map(p => [p.id, p.district]));
+        const knownDistricts = new Map(state.pools.map(p => [p.id, p.district]));
         fresh.forEach(p => {
             if (p.district === "Lima" && knownDistricts.has(p.id)) p.district = knownDistricts.get(p.id);
             p.parsed = parseSchedule(p.schedule);
         });
 
-        poolsList = fresh;
-        poolsById = new Map(fresh.map(p => [p.id, p]));
-        computeDistances();
+        setPools(fresh);
         renderDistrictPills();
-        if (map) rebuildMapMarkers();
+        rebuildMapMarkers();
         renderPools();
     } catch (e) {
         // Sin conexión o Sheet caído: nos quedamos con los datos del build
     }
+}
+
+function renderFreshness() {
+    const el = $("data-freshness");
+    if (!el || lastCheck === null) return;
+    const mins = Math.floor((Date.now() - lastCheck) / 60000);
+    el.textContent = mins < 1 ? "Datos verificados ahora" : `Datos verificados hace ${mins} min`;
+    el.hidden = false;
 }
 
 // -------------------------------------------------------------
@@ -704,8 +198,8 @@ function setupEventListeners() {
     let searchTimer = null;
 
     searchInput.addEventListener("input", (e) => {
-        activeFilters.search = e.target.value.trim();
-        $("clear-search-btn").hidden = activeFilters.search === "";
+        state.filters.search = e.target.value.trim();
+        $("clear-search-btn").hidden = state.filters.search === "";
         clearTimeout(searchTimer);
         // Se repinta al dejar de escribir: así el lector de pantalla no
         // anuncia un recuento nuevo en cada tecla.
@@ -716,58 +210,61 @@ function setupEventListeners() {
     });
 
     $("clear-search-btn").addEventListener("click", () => {
-        activeFilters.search = "";
+        state.filters.search = "";
         onFilterChange({ push: true });
         searchInput.focus();
     });
 
     document.querySelectorAll(".filter-chip").forEach(chip => {
         chip.addEventListener("click", () => {
-            activeFilters.regType = chip.dataset.filter;
+            state.filters.regType = chip.dataset.filter;
             onFilterChange({ push: true });
-            track("filtro_usado", { filtro: "registro", valor: activeFilters.regType });
+            track("filtro_usado", { filtro: "registro", valor: state.filters.regType });
         });
     });
 
     $("district-pills-container").addEventListener("click", (e) => {
         const pill = e.target.closest(".district-pill");
         if (!pill) return;
-        activeFilters.district = pill.dataset.district;
+        state.filters.district = pill.dataset.district;
         onFilterChange({ push: true });
-        track("filtro_usado", { filtro: "distrito", valor: activeFilters.district });
+        track("filtro_usado", { filtro: "distrito", valor: state.filters.district });
     });
 
     $("filter-day-select").addEventListener("change", (e) => {
-        activeFilters.day = e.target.value;
+        state.filters.day = e.target.value;
         onFilterChange({ push: true });
-        track("filtro_usado", { filtro: "dia", valor: activeFilters.day });
+        track("filtro_usado", { filtro: "dia", valor: state.filters.day });
     });
 
     $("filter-hour-select").addEventListener("change", (e) => {
-        activeFilters.hour = e.target.value;
+        state.filters.hour = e.target.value;
         onFilterChange({ push: true });
-        track("filtro_usado", { filtro: "hora", valor: activeFilters.hour });
+        track("filtro_usado", { filtro: "hora", valor: state.filters.hour });
     });
 
     $("sort-select").addEventListener("change", (e) => {
         if (e.target.value === "distance") { sortByDistance(); return; }
-        currentSort = e.target.value;
+        state.sort = e.target.value;
         writeFiltersToURL({ push: true });
-        renderPools();
+        renderPools({ animate: true });
     });
 
-    ["btn-filter-now-mobile", "btn-filter-now-map"].forEach(id => {
-        $(id).addEventListener("click", () => {
-            activeFilters.openNow = !activeFilters.openNow;
-            if (activeFilters.openNow) {
+    // Un botón en la barra de filtros y otro sobre el mapa
+    document.querySelectorAll('[data-action="filter-now"]').forEach(btn => {
+        btn.addEventListener("click", () => {
+            state.filters.openNow = !state.filters.openNow;
+            if (state.filters.openNow) {
                 // Un día u hora sueltos contradicen "abiertas ahora"
-                activeFilters.day = "all";
-                activeFilters.hour = "all";
+                state.filters.day = "all";
+                state.filters.hour = "all";
             }
             onFilterChange({ push: true });
-            track("filtro_usado", { filtro: "abiertas_ahora", valor: String(activeFilters.openNow) });
+            track("filtro_usado", { filtro: "abiertas_ahora", valor: String(state.filters.openNow) });
         });
     });
+
+    $("btn-near-me").addEventListener("click", sortByDistance);
 
     $("reset-filters-btn").addEventListener("click", resetAllFilters);
     $("clear-filters-btn").addEventListener("click", resetAllFilters);
@@ -789,11 +286,11 @@ function setupEventListeners() {
         if (e.target.closest("[data-map-btn]")) { focusPoolOnMap(poolId); return; }
 
         if (e.target.closest("[data-share-btn]")) {
-            const pool = poolsById.get(poolId);
+            const pool = state.poolsById.get(poolId);
             const url = new URL(`${rel()}piscina/${poolId}/`, location.href).href;
             const result = await sharePool(pool, url);
-            if (result === "copied") showToast("Enlace copiado al portapapeles.");
-            else if (result === "failed") showToast("No pudimos compartir el enlace.");
+            if (result === "copied") showToast("Enlace copiado al portapapeles.", "success");
+            else if (result === "failed") showToast("No pudimos compartir el enlace.", "error");
             return;
         }
 
@@ -806,8 +303,13 @@ function setupEventListeners() {
         setMapView(!document.body.classList.contains("show-map"));
     });
 
+    $("map-fit-btn").addEventListener("click", fitToVisible);
+    $("map-retry-btn").addEventListener("click", () => {
+        ensureMap().catch(() => { /* ya se avisó con un toast */ });
+    });
+
     $("filters-toggle-btn").addEventListener("click", (e) => {
-        if (document.body.classList.contains("filters-sheet-open")) closeFilterSheet();
+        if (isSheetOpen()) closeFilterSheet();
         else openFilterSheet(e.currentTarget);
     });
     $("map-filters-btn").addEventListener("click", (e) => openFilterSheet(e.currentTarget));
@@ -816,13 +318,31 @@ function setupEventListeners() {
     $("sheet-backdrop").addEventListener("click", closeFilterSheet);
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && document.body.classList.contains("filters-sheet-open")) closeFilterSheet();
-        else trapFocus(e);
+        if (e.key === "Escape") {
+            if (isSheetOpen()) { closeFilterSheet(); return; }
+            // Esc dentro del buscador lo vacía, como en cualquier campo de
+            // búsqueda nativo
+            if (document.activeElement === searchInput && state.filters.search) {
+                state.filters.search = "";
+                onFilterChange({ push: true });
+            }
+            return;
+        }
+
+        // "/" para saltar al buscador, salvo si ya se está escribiendo
+        if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !isFormField(e.target)) {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+            return;
+        }
+
+        trapFocus(e);
     });
 
     // En escritorio es un desplegable: clicar fuera lo cierra
     document.addEventListener("click", (e) => {
-        if (isMobileView() || !document.body.classList.contains("filters-sheet-open")) return;
+        if (isMobileView() || !isSheetOpen()) return;
         const sheet = $("filter-sheet");
         if (sheet.contains(e.target) || e.target.closest("#filters-toggle-btn")) return;
         closeFilterSheet();
@@ -846,7 +366,27 @@ function setupEventListeners() {
     });
 
     onThemeChange(updateMapTiles);
+    watchScroll();
     hideFabsOverFooter();
+}
+
+function isFormField(el) {
+    return el instanceof HTMLElement &&
+        (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+}
+
+// La cabecera se despega con una sombra y desenfoque en cuanto la lista
+// empieza a pasar por debajo. En escritorio el que desplaza es
+// .content-area; en móvil, la ventana.
+function watchScroll() {
+    const area = document.querySelector(".content-area");
+    const update = () => {
+        const y = isMobileView() ? window.scrollY : (area ? area.scrollTop : 0);
+        document.body.classList.toggle("is-scrolled", y > 8);
+    };
+    if (area) area.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("scroll", update, { passive: true });
+    update();
 }
 
 // En móvil los botones flotantes se quedan encima del pie, que es
@@ -887,9 +427,28 @@ function scheduleDesktopMapPreload() {
     else setTimeout(loadMap, 600);
 }
 
+// Sin datos no hay nada que filtrar y una lista vacía sin explicación
+// parece un sitio roto. Mejor decirlo y ofrecer recargar.
+function showLoadError() {
+    const listContainer = $("pools-list");
+    listContainer.innerHTML = `
+        <div class="load-error" role="alert">
+            ${icon("circle-alert", "load-error-icon")}
+            <h2>No pudimos cargar el listado</h2>
+            <p>Los datos de esta página no se leyeron bien. Recargar suele bastar.</p>
+            <button type="button" class="btn btn-primary" id="reload-btn">${icon("refresh-cw")} Recargar</button>
+        </div>`;
+    $("reload-btn").addEventListener("click", () => location.reload());
+}
+
 function init() {
     initTheme();
     initTracking();
+    initImageFallback();
+
+    const pools = readEmbeddedPools();
+    if (!pools.length) { showLoadError(); return; }
+    setPools(pools);
 
     readFiltersFromURL();
     renderDistrictPills();
@@ -900,6 +459,7 @@ function init() {
 
     scheduleDesktopMapPreload();
     refreshFromSheet();
+    setInterval(renderFreshness, 60000);
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
