@@ -7,7 +7,7 @@
 // -------------------------------------------------------------
 
 import {
-    parseSchedule, formatHour24, DAY_SCHEMA, scheduleSummary
+    parseSchedule, formatHour24, DAY_SCHEMA, scheduleSummary, parseRegisterInfo
 } from "../lib/pools-core.js";
 import { SITE, absolute } from "./templates.js";
 
@@ -66,6 +66,7 @@ export function poolSchema(pool, { withId = true } = {}) {
     if (pool.whatsapp) node.telephone = "+" + pool.whatsapp.replace(/\D/g, "");
 
     if (pool.priceNum > 0) {
+        const registerUrl = parseRegisterInfo(pool.register).url;
         node.priceRange = `S/. ${pool.priceNum.toFixed(2)}`;
         node.makesOffer = [{
             "@type": "Offer",
@@ -73,7 +74,7 @@ export function poolSchema(pool, { withId = true } = {}) {
             price: pool.priceNum.toFixed(2),
             priceCurrency: "PEN",
             availability: "https://schema.org/InStock",
-            url: pool.regType === "online" && pool.register.startsWith("http") ? pool.register : poolUrl(pool)
+            url: pool.regType === "online" && registerUrl ? registerUrl : poolUrl(pool)
         }];
     }
 

@@ -6,7 +6,7 @@
 // lo que dependa de `L` vive detrás de ensureMap().
 // -------------------------------------------------------------
 
-import { escapeHtml, getOpenStatus } from "./lib/pools-core.js";
+import { escapeHtml, getOpenStatus, parseRegisterInfo } from "./lib/pools-core.js";
 import { icon } from "./lib/icons.js";
 import { districtHue } from "./lib/card.js";
 import { showToast, currentTheme, track, $, rel, isMobileView } from "./ui.js";
@@ -171,8 +171,9 @@ function popupHTML(pool) {
         ? `<span class="tooltip-status open">Abierto ahora</span>`
         : (status === false ? `<span class="tooltip-status closed">Cerrado ahora</span>` : "");
 
-    const reserveHtml = (pool.regType === "online" && pool.register.startsWith("http"))
-        ? `<a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" class="popup-btn popup-btn-primary" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar ${icon("external-link")}</a>`
+    const registerUrl = parseRegisterInfo(pool.register).url;
+    const reserveHtml = (pool.regType === "online" && registerUrl)
+        ? `<a href="${escapeHtml(registerUrl)}" target="_blank" rel="noopener" class="popup-btn popup-btn-primary" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar ${icon("external-link")}</a>`
         : "";
 
     return `

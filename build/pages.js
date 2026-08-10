@@ -5,7 +5,7 @@
 import { icon } from "../lib/icons.js";
 import {
     escapeHtml, formatPrice, parseSchedule, scheduleSummary,
-    getOpenDays, buildWhatsAppLink, buildNavLinks, districtSlug
+    getOpenDays, buildWhatsAppLink, buildNavLinks, districtSlug, parseRegisterInfo
 } from "../lib/pools-core.js";
 import { poolCardHTML, renderWeekStrip, renderScheduleBlock, districtHue } from "../lib/card.js";
 import { layout, header, footer, breadcrumbsHTML, breadcrumbsJsonLd, SITE, relFor } from "./templates.js";
@@ -429,6 +429,7 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
     const path = `piscina/${pool.id}/`;
     const rel = relFor(path);
     const parsed = pool.parsed || parseSchedule(pool.schedule);
+    const registerInfo = parseRegisterInfo(pool.register);
     const wa = buildWhatsAppLink(pool);
     const nav = buildNavLinks(pool);
     const others = districtPools.filter(p => p.id !== pool.id);
@@ -476,8 +477,8 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
                         </div>
                         <div class="fact">
                             <dt>${icon("info")} Registro</dt>
-                            <dd>${pool.regType === "online" && pool.register.startsWith("http")
-            ? `Online — <a href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">reservar aquí</a>`
+                            <dd>${pool.regType === "online" && registerInfo.url
+            ? `${registerInfo.text ? `${escapeHtml(registerInfo.text)}. ` : ""}Online — <a href="${escapeHtml(registerInfo.url)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">reservar aquí</a>`
             : escapeHtml(pool.register || "Presencial")}</dd>
                         </div>
                         <div class="fact">
@@ -488,8 +489,8 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
 
     const actions = `
                     <div class="pool-page-actions">
-                        ${pool.regType === "online" && pool.register.startsWith("http")
-            ? `<a class="btn btn-primary" href="${escapeHtml(pool.register)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar vacante ${icon("external-link")}</a>`
+                        ${pool.regType === "online" && registerInfo.url
+            ? `<a class="btn btn-primary" href="${escapeHtml(registerInfo.url)}" target="_blank" rel="noopener" data-track="reservar" data-pool="${escapeHtml(pool.name)}">Reservar vacante ${icon("external-link")}</a>`
             : ""}
                         ${wa ? `<a class="btn btn-whatsapp" href="${wa}" target="_blank" rel="noopener" data-track="whatsapp" data-pool="${escapeHtml(pool.name)}">${icon("phone")} Consultar por WhatsApp</a>` : ""}
                         <a class="btn btn-secondary" href="${nav.maps}" target="_blank" rel="noopener" data-track="navegar" data-pool="${escapeHtml(pool.name)}">${icon("navigation")} Google Maps</a>
