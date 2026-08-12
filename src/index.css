@@ -1130,7 +1130,9 @@ body.filters-sheet-open .filter-bar-btn .filter-bar-chevron { transform: rotate(
 /* Antes de que Leaflet exista y mientras carga, un armazón en lugar de
  * un rectángulo vacío. */
 .map-skeleton, .map-error { position: absolute; inset: 0; z-index: 2; display: none; }
-.map-area[data-state="idle"] .map-skeleton,
+/* Solo mientras carga de verdad. En "idle" el mapa aún no se ha pedido
+ * (móvil, o escritorio antes de la precarga) y un esqueleto permanente
+ * haría creer que está colgado: mejor un área vacía. */
 .map-area[data-state="loading"] .map-skeleton { display: block; }
 .map-area[data-state="error"] .map-error {
     display: flex;
@@ -1377,6 +1379,16 @@ body.filters-sheet-open .filter-bar-btn .filter-bar-chevron { transform: rotate(
 .popup-view-list:hover { color: var(--color-primary); border-color: var(--color-primary); }
 .popup-view-list svg { width: 14px; height: 14px; }
 
+/* Leaflet trae `.leaflet-container a { color: #0078A8 }`, que con (0,1,1)
+ * le gana a cualquiera de las clases de arriba, y además inyecta su hoja
+ * en <head> después de esta. Sin volver a fijar el color aquí, el botón
+ * primario del popup queda azul sobre azul y el texto no se lee. */
+.leaflet-container .popup-btn-primary { color: var(--on-primary); }
+.leaflet-container .popup-btn-icon,
+.leaflet-container .popup-view-list { color: var(--text-muted); }
+.leaflet-container .popup-btn-icon:hover { color: var(--text-main); }
+.leaflet-container .popup-view-list:hover { color: var(--color-primary); }
+
 /* -------------------------------------------------------------
  * Botones flotantes en móvil
  * ------------------------------------------------------------- */
@@ -1562,6 +1574,9 @@ body.filters-sheet-open .filter-bar-btn .filter-bar-chevron { transform: rotate(
 .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
 .footer-col a { font-size: var(--fs-base); color: var(--text-muted); text-decoration: none; transition: var(--transition-fast); }
 .footer-col a:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+/* Los enlaces de contacto llevan icono; el resto de la columna, no. */
+.footer-col a:has(svg) { display: inline-flex; align-items: center; gap: var(--space-2); }
+.footer-col a svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--color-secondary); }
 
 .footer-admin {
     display: flex;
@@ -1574,6 +1589,25 @@ body.filters-sheet-open .filter-bar-btn .filter-bar-chevron { transform: rotate(
 .footer-admin svg { width: 18px; height: 18px; color: var(--color-secondary); flex-shrink: 0; margin-top: 2px; }
 .footer-admin p { font-size: var(--fs-base); line-height: var(--lh-snug); color: var(--text-muted); }
 .footer-admin a { color: var(--color-primary); }
+.footer-admin-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+
+/* Doble clase a propósito: `.footer-admin a` es más específico que una
+ * clase suelta y le ganaría al color del botón. */
+.footer-admin .footer-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-full);
+    background-color: var(--color-primary);
+    color: var(--text-invert);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition-fast);
+}
+.footer-admin .footer-admin-btn:hover { background-color: var(--color-primary-hover); }
+.footer-admin .footer-admin-btn svg { width: 16px; height: 16px; margin-top: 0; color: currentColor; }
 
 .footer-bottom { display: flex; flex-direction: column; gap: var(--space-1); text-align: center; border-top: 1px solid var(--border-color); padding-top: var(--space-5); }
 .footer-bottom p { font-size: var(--fs-sm); color: var(--text-light); line-height: var(--lh-snug); }

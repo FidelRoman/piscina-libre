@@ -22,7 +22,7 @@ const FAQ = [
     },
     {
         q: "¿Qué requisitos piden en las piscinas municipales de Lima?",
-        a: "En la mayoría de sedes piden DNI original o carné de extranjería, ropa de baño deportiva, gorro de natación de silicona o tela y sandalias de jebe. Algunas sedes suman un certificado médico simple o una declaración jurada de salud."
+        a: "Para un turno de nado libre basta con saber nadar, gorro de natación de silicona o tela y ropa de baño deportiva (trusa, jammer o enterizo)."
     },
     {
         q: "¿Existen piscinas temperadas y techadas para nadar en Lima?",
@@ -512,7 +512,7 @@ export function poolPage({ pool, districtPools, districts, builtAt }) {
 
                 <section class="page-section">
                     <h2>Qué necesitas para entrar</h2>
-                    <p>La mayoría de sedes municipales de Lima piden DNI, gorro de natación, ropa de baño deportiva y sandalias de jebe. Algunas suman certificado médico o declaración jurada de salud. Lo tienes detallado en la guía de <a href="${rel}guias/requisitos-piscina-municipal-lima/">requisitos para entrar a una piscina municipal</a>.</p>
+                    <p>Para un turno de nado libre basta con saber nadar, gorro de natación y ropa de baño deportiva. Lo tienes detallado en la guía de <a href="${rel}guias/requisitos-piscina-municipal-lima/">requisitos para entrar a una piscina municipal</a>.</p>
                 </section>
 
                 ${others.length ? `

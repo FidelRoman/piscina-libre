@@ -21,6 +21,12 @@ export const SITE = {
     author: "Fidel Román",
     email: "fidel.roman@outlook.com",
 
+    // Número de contacto en formato internacional, sin signos ni espacios.
+    // Es el canal principal del pie: los mailto dependen de que el
+    // visitante tenga un cliente de correo configurado y en escritorio
+    // muchas veces no pasa nada al pulsarlos.
+    whatsapp: "51936281149",
+
     // Pega aquí tu ID de Google Analytics 4 (formato G-XXXXXXXXXX).
     // Mientras esté vacío no se carga gtag.js en ninguna página.
     ga4Id: "G-XGG5D5DDHV",
@@ -140,9 +146,15 @@ function footer(rel, { districts = [], guides = [], builtAt }) {
         `<li><a href="${rel}guias/${g.slug}/">${escapeHtml(g.title)}</a></li>`
     ).join("");
 
-    const suggestMail = `mailto:${SITE.email}?subject=${encodeURIComponent("Sugerir una piscina para PiscinaLibre")}&body=${encodeURIComponent("Nombre de la piscina:\nDirección y distrito:\nPrecio del turno:\nHorarios de nado libre:\nCómo se reserva (web o presencial):\nTeléfono o WhatsApp:\n")}`;
-    const reportMail = `mailto:${SITE.email}?subject=${encodeURIComponent("Reportar un dato incorrecto en PiscinaLibre")}&body=${encodeURIComponent("Piscina:\nDato incorrecto:\nDato correcto:\nCómo lo sabes (opcional):\n")}`;
-    const adminMail = `mailto:${SITE.email}?subject=${encodeURIComponent("Quiero publicar mi piscina en PiscinaLibre")}&body=${encodeURIComponent("Nombre de la sede:\nDirección y distrito:\nPrecio del turno de nado libre:\nHorarios:\nCómo se reserva:\nContacto:\n")}`;
+    // WhatsApp en vez de mailto: un mailto solo funciona si el visitante
+    // tiene un cliente de correo registrado, y en escritorio a menudo el
+    // clic no hace nada. wa.me abre la app o WhatsApp Web en cualquier
+    // dispositivo, con el mensaje ya escrito.
+    const wa = (text) => `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(text)}`;
+
+    const suggestChat = wa("Hola, quiero sugerir una piscina para PiscinaLibre.\n\nNombre de la piscina:\nDirección y distrito:\nPrecio del turno:\nHorarios de nado libre:\nCómo se reserva (web o presencial):\nTeléfono o WhatsApp:");
+    const reportChat = wa("Hola, encontré un dato incorrecto en PiscinaLibre.\n\nPiscina:\nDato incorrecto:\nDato correcto:\nCómo lo sabes (opcional):");
+    const adminChat = wa("Hola, administro una piscina y quiero publicarla en PiscinaLibre.\n\nNombre de la sede:\nDirección y distrito:\nPrecio del turno de nado libre:\nHorarios:\nCómo se reserva:\nContacto:");
 
     const channelCta = SITE.whatsappChannel
         ? `<a class="footer-cta-btn" href="${SITE.whatsappChannel}" target="_blank" rel="noopener" data-track="canal_whatsapp">${icon("message-circle")} Unirme al canal</a>`
@@ -171,18 +183,20 @@ function footer(rel, { districts = [], guides = [], builtAt }) {
                     <div class="footer-col">
                         <h2>Colabora</h2>
                         <ul>
-                            <li><a href="${suggestMail}">Sugerir una piscina</a></li>
-                            <li><a href="${reportMail}">Reportar un dato incorrecto</a></li>
-                            <li><a href="${adminMail}"><strong>¿Administras una piscina?</strong></a></li>
+                            <li><a href="${suggestChat}" target="_blank" rel="noopener" data-track="contacto_whatsapp">${icon("message-circle")} Sugerir una piscina</a></li>
+                            <li><a href="${reportChat}" target="_blank" rel="noopener" data-track="contacto_whatsapp">${icon("message-circle")} Reportar un dato incorrecto</a></li>
+                            <li><a href="${adminChat}" target="_blank" rel="noopener" data-track="contacto_whatsapp">${icon("message-circle")} <strong>¿Administras una piscina?</strong></a></li>
                         </ul>
                     </div>
                 </div>
 
                 <div class="footer-admin">
                     ${icon("users")}
-                    <p><strong>¿Administras una piscina o eres de una municipalidad?</strong>
-                    Publicamos tu sede gratis: horarios, precio y enlace de reserva.
-                    Escríbenos a <a href="${adminMail}">${SITE.email}</a>.</p>
+                    <div class="footer-admin-body">
+                        <p><strong>¿Administras una piscina o eres de una municipalidad?</strong>
+                        Publicamos tu sede gratis: horarios, precio y enlace de reserva.</p>
+                        <a class="footer-admin-btn" href="${adminChat}" target="_blank" rel="noopener" data-track="contacto_whatsapp">${icon("message-circle")} Escríbenos por WhatsApp</a>
+                    </div>
                 </div>
 
                 <div class="footer-bottom">

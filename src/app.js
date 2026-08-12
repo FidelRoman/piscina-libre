@@ -348,7 +348,13 @@ function setupEventListeners() {
         closeFilterSheet();
     });
 
-    window.addEventListener("resize", syncSheetForViewport);
+    window.addEventListener("resize", () => {
+        syncSheetForViewport();
+        // Al ensanchar hasta escritorio el mapa pasa a estar a la vista. Si
+        // la página arrancó en ancho de móvil, la precarga se saltó y sin
+        // esto el área se quedaría vacía hasta que alguien la tocara.
+        scheduleDesktopMapPreload();
+    });
 
     // Una pestaña en segundo plano (Cmd+clic, restaurar sesión) informa
     // innerWidth 0, así que al arrancar todo parece móvil. Cuando pasa a
@@ -411,17 +417,28 @@ function hideFabsOverFooter() {
 //     ahí el `timeout` de requestIdleCallback;
 //   · y tampoco reporta un ancho real, así que la decisión móvil/escritorio
 //     se aplaza hasta que la pestaña se ve.
+// Se llama también en cada `resize`, así que lleva pestillo: sin él se
+// encolaría un requestIdleCallback por cada píxel que se arrastra el borde
+// de la ventana. Ojo: el pestillo NO se echa en el caso móvil, porque ahí
+// justamente queremos volver a intentarlo si la ventana se ensancha.
+let mapPreloadScheduled = false;
+
 function scheduleDesktopMapPreload() {
+    if (mapPreloadScheduled) return;
+
     if (document.visibilityState === "hidden") {
+        mapPreloadScheduled = true;
         document.addEventListener("visibilitychange", function onVisible() {
             if (document.visibilityState === "hidden") return;
             document.removeEventListener("visibilitychange", onVisible);
+            mapPreloadScheduled = false;
             scheduleDesktopMapPreload();
         });
         return;
     }
-    if (isMobileView()) return;
+    if (isMobileView()) return;   // sin echar el pestillo: al ensanchar se reintenta
 
+    mapPreloadScheduled = true;
     const loadMap = () => ensureMap().catch(() => { /* ya se avisó con un toast */ });
     if (window.requestIdleCallback) window.requestIdleCallback(loadMap, { timeout: 1500 });
     else setTimeout(loadMap, 600);

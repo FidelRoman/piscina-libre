@@ -51,22 +51,27 @@ ${(() => {
     {
         slug: "requisitos-piscina-municipal-lima",
         title: "Requisitos para entrar a una piscina municipal en Lima",
-        description: "DNI, gorro, certificado médico y demás requisitos que piden las piscinas municipales de Lima para el nado libre.",
-        summary: "Lo que te van a pedir en la puerta, y qué hacer si te falta algo.",
+        description: "Qué piden de verdad en la puerta de una piscina municipal de Lima para nadar libre: saber nadar, gorro y ropa de baño deportiva.",
+        summary: "Lo que te exigen en la puerta, lo que no te piden, y qué conviene llevar igual.",
         html: (ctx) => `
-<p>Los requisitos cambian de una municipalidad a otra, pero hay un mínimo común que se repite en casi todas las sedes de Lima. Llegar sin alguno de estos elementos es el motivo más frecuente por el que a alguien no lo dejan entrar.</p>
+<p>Para un turno de <strong>nado libre</strong> en una piscina municipal de Lima la lista es corta. Mucha gente llega preparada para un trámite que no existe y, en cambio, se olvida del gorro, que sí es el motivo más frecuente por el que a alguien lo devuelven en la puerta.</p>
 
-<h2>Lo que piden casi siempre</h2>
+<h2>Lo que te exigen</h2>
 <ul class="guide-list">
-    <li><strong>Documento de identidad.</strong> DNI original o carné de extranjería. En varias sedes lo retienen mientras dura el turno o lo registran a la entrada.</li>
+    <li><strong>Saber nadar.</strong> Es el requisito de fondo. En nado libre no hay instructor, solo el salvavidas de turno, así que la sede da por hecho que te defiendes solo en el carril. Algunas te piden nadar un largo la primera vez para comprobarlo.</li>
     <li><strong>Gorro de natación.</strong> Silicona o tela. Es obligatorio en prácticamente todas las piscinas públicas, sin importar si tienes el pelo corto.</li>
     <li><strong>Ropa de baño deportiva.</strong> Trusa, jammer o enterizo. Los shorts de playa, las bermudas y la ropa de algodón no se aceptan.</li>
-    <li><strong>Sandalias de jebe.</strong> Para circular por el borde y los vestuarios.</li>
 </ul>
 
-<h2>El certificado médico</h2>
-<p>Es el requisito que más varía. Algunas sedes piden un certificado médico reciente, otras hacen una evaluación rápida en la puerta con un tópico propio, y otras se conforman con una declaración jurada de salud que firmas ahí mismo. Cuando lo piden, suele tener una vigencia de entre uno y tres meses.</p>
-<p>Si vas por primera vez a una sede, pregunta por este punto antes de ir. Es el que puede costarte el viaje.</p>
+<h2>Lo que no te piden, aunque mucha gente lo cree</h2>
+<ul class="guide-list">
+    <li><strong>DNI.</strong> No hace falta para comprar un turno de nado libre: pagas en boletería y entras. Aparece solo en dos casos concretos, y ninguno es la puerta: al crear la cuenta en la plataforma de una sede con reserva online, y al pedir la tarifa de vecino, donde sirve para acreditar que vives en el distrito.</li>
+    <li><strong>Certificado médico.</strong> No es lo habitual en nado libre. Se asocia a las inscripciones de academia, a los campeonatos y a los cursos de temporada, no a comprar un turno suelto.</li>
+</ul>
+<p>Dicho esto, cada municipalidad manda en su piscina y puede añadir una regla propia. Si es tu primera vez en una sede, una llamada rápida te ahorra el viaje: cada ficha del directorio trae el contacto.</p>
+
+<h2>Lo que conviene llevar igual</h2>
+<p>No te lo van a exigir en la puerta, pero lo vas a necesitar dentro: <strong>sandalias de jebe</strong> para el borde y los vestuarios, <strong>lentes de natación</strong> porque el cloro de las piscinas públicas es fuerte, y <strong>toalla</strong>, que casi ninguna sede municipal presta. La lista completa está en la guía de <a href="${ctx.rel}guias/que-llevar-a-la-piscina/">qué llevar a la piscina</a>.</p>
 
 <h2>Lo que suele estar prohibido</h2>
 <ul class="guide-list">
@@ -86,17 +91,21 @@ ${poolLinkList(ctx, ctx.pools)}
         title: "Qué llevar a la piscina: lista para nado libre",
         description: "Lista de lo que necesitas para un turno de nado libre en Lima: gorro, lentes, sandalias, toalla y los extras que se agradecen.",
         summary: "La lista corta de lo imprescindible y lo que marca la diferencia.",
-        html: () => `
-<p>Un turno de nado libre dura menos de una hora, así que la mochila puede ser mínima. Esta es la lista que cubre el 100% de las sedes de Lima.</p>
+        html: (ctx) => `
+<p>Un turno de nado libre dura menos de una hora, así que la mochila puede ser mínima. Conviene separar dos cosas: lo que la sede te va a exigir para dejarte pasar, y lo que nadie te pide pero vas a echar de menos si no lo llevas.</p>
 
-<h2>Imprescindible</h2>
+<h2>Sin esto no entras</h2>
 <ul class="guide-list">
-    <li><strong>Gorro de natación.</strong> Sin esto no entras. La silicona aísla mejor y dura más; la tela es más cómoda si te aprieta la cabeza.</li>
-    <li><strong>Ropa de baño deportiva.</strong> Trusa, jammer o enterizo. Nada de shorts de playa.</li>
-    <li><strong>Lentes de natación.</strong> Técnicamente opcionales, pero el cloro de las piscinas públicas es fuerte y sin lentes acabas con los ojos irritados.</li>
+    <li><strong>Gorro de natación.</strong> La silicona aísla mejor y dura más; la tela es más cómoda si te aprieta la cabeza.</li>
+    <li><strong>Ropa de baño deportiva.</strong> Trusa, jammer o enterizo. Nada de shorts de playa, bermudas ni algodón.</li>
+</ul>
+<p>Esa es toda la exigencia habitual en la puerta, además de saber nadar. Lo tienes desglosado en la guía de <a href="${ctx.rel}guias/requisitos-piscina-municipal-lima/">requisitos para entrar a una piscina municipal</a>.</p>
+
+<h2>Nadie te lo pide, pero lo vas a necesitar</h2>
+<ul class="guide-list">
+    <li><strong>Lentes de natación.</strong> El cloro de las piscinas públicas es fuerte y sin lentes acabas con los ojos irritados.</li>
     <li><strong>Sandalias de jebe.</strong> El suelo de los vestuarios es la vía rápida a los hongos.</li>
     <li><strong>Toalla.</strong> Casi ninguna sede municipal presta.</li>
-    <li><strong>DNI.</strong> Te lo van a pedir en la puerta.</li>
 </ul>
 
 <h2>Se agradece llevar</h2>
@@ -128,9 +137,22 @@ ${poolLinkList(ctx, ctx.pools)}
 </ul>
 <p>Lo ideal en invierno es temperada y techada. Al reservar, pregunta explícitamente por la temperatura del agua: es habitual que una sede se anuncie como techada sin que el agua esté temperada.</p>
 
-<h2>Sedes del directorio</h2>
-<p>Estas son todas las piscinas con horarios de nado libre que tenemos registradas. Confirma con la sede si el agua está temperada antes de ir, porque el sistema de calentamiento puede estar fuera de servicio:</p>
-${poolLinkList(ctx, ctx.pools)}
+${(() => {
+    // El Sheet todavía no tiene columna de temperatura, así que lo único
+    // que podemos afirmar es lo que la propia sede declara en su nombre.
+    // Cuando el dato exista, este filtro se cambia por el campo real.
+    const esTemperada = p => /temperad|climatizad/i.test(p.name);
+    const declaran = ctx.pools.filter(esTemperada);
+    const resto = ctx.pools.filter(p => !esTemperada(p));
+    return `<h2>Sedes que se anuncian como temperadas</h2>
+<p>Estas son las que lo declaran abiertamente. No es la lista completa de piscinas temperadas de Lima: es la parte que podemos confirmar, porque la temperatura del agua no es un dato que las sedes publiquen de forma sistemática.</p>
+${poolLinkList(ctx, declaran, "Ninguna sede del directorio se anuncia hoy como temperada.")}
+
+<h2>El resto de sedes con nado libre</h2>
+<p>De estas no tenemos el dato de temperatura. Muchas temperan el agua sin decirlo en el nombre, así que vale la pena preguntar antes de descartarlas, sobre todo si te queda cerca:</p>
+${poolLinkList(ctx, resto)}`;
+})()}
+<p class="guide-note">Aunque una sede sea temperada, pregunta al reservar si el sistema de calentamiento está operativo: es la avería más común y no siempre se avisa.</p>
 
 <h2>Consejos para nadar en invierno</h2>
 <ul class="guide-list">
@@ -175,15 +197,14 @@ ${poolLinkList(ctx, ctx.pools)}
 <ul class="guide-list">
     <li><strong>Agua temperada.</strong> Calentar una piscina cuesta, y ese costo va al turno.</li>
     <li><strong>Piscina de 50 metros.</strong> Las de competencia son más caras de mantener que una de 25.</li>
-    <li><strong>Reserva online.</strong> La comodidad de asegurar tu cupo suele venir con recargo de plataforma.</li>
-    <li><strong>Carril individual.</strong> Algunas sedes cobran aparte si no quieres compartir carril.</li>
+    <li><strong>Reserva online.</strong> En el directorio, las sedes con plataforma de reserva salen de media más caras que las de boletería. Pesa más el tipo de instalación que la plataforma en sí, pero la tendencia está ahí.</li>
 </ul>
 
 <h2>Cómo bajar el costo por sesión</h2>
 <ul class="guide-list">
-    <li><strong>Compra abonos.</strong> Los paquetes de 8 o 10 turnos suelen salir bastante por debajo del precio suelto.</li>
-    <li><strong>Nada en horario valle.</strong> Media mañana y primera tarde son más baratas y están mucho más vacías que la noche.</li>
-    <li><strong>Pregunta por la tarifa de vecino.</strong> Varias municipalidades cobran menos a los residentes del distrito que acrediten domicilio con el DNI.</li>
+    <li><strong>Pregunta por abonos.</strong> No todas las sedes los tienen, pero donde existen, el paquete de varios turnos baja el precio por sesión frente al ticket suelto.</li>
+    <li><strong>Nada en horario valle.</strong> Media mañana y primera tarde están mucho más vacías que la noche. El precio suele ser el mismo, pero el carril se comparte entre menos gente, que en la práctica es lo que cambia la sesión.</li>
+    <li><strong>Pregunta por la tarifa de vecino.</strong> Varias municipalidades cobran menos a los residentes del distrito. Es uno de los pocos casos en que sí conviene llevar el DNI, porque sirve para acreditar el domicilio.</li>
     <li><strong>Consulta descuentos.</strong> Es común que haya tarifa reducida para estudiantes, adultos mayores y personas con discapacidad.</li>
 </ul>
 
